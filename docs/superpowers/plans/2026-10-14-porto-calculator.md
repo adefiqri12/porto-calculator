@@ -235,15 +235,16 @@ git commit -m "feat: core DCA future value with zero-rate and zero-month guards"
 
 ---
 
-### Task 4: `core/models.py` and `core/portfolio.py`
+### Task 4: `core/presets.py`, `api/schemas.py`, and `core/portfolio.py`
 
 **Files:**
-- Create: `core/models.py`, `core/portfolio.py`
+- Create: `core/presets.py`, `core/portfolio.py` (Pydantic schemas live in `api/schemas.py`, created in Task 8, so `core/` stays web-free)
 - Test: `tests/test_portfolio.py`
 
 **Interfaces:**
 - Consumes: `core.dca.future_value`.
-- Produces (in `core/models.py`): Pydantic models `CagrRequest`, `CagrResponse`, `DcaRequest`, `DcaResponse`, `Holding(name: str, weight_pct: float, annual_roi_pct: float)`, `PortfolioRequest`, `PortfolioResponse`, `TradingRequest`, `TradingResponse`, `SimulateRequest`, `SimulateResponse`, `StrategyPreset`; and the constant `PRESETS: dict[str, StrategyPreset]` with keys `"A"`, `"B"`, `"C"`, `"fomo"`.
+- Produces (in `core/presets.py`): the `StrategyPreset` dataclass and the constant `PRESETS: dict[str, StrategyPreset]` with keys `"A"`, `"B"`, `"C"`, `"fomo"`.
+- Produces (in `api/schemas.py`, Task 8): Pydantic models `CagrRequest`, `CagrResponse`, `DcaRequest`, `DcaResponse`, `PortfolioRequest`, `PortfolioResponse`, `TradingRequest`, `TradingResponse`, `SimulateRequest`, `SimulateResponse`, `PresetOut`. `Holding` is a plain dataclass in `core/portfolio.py`.
 - Produces (in `core/portfolio.py`):
   - `validate_allocation(weights: list[float]) -> None` — raises `ValueError` unless each `>= 0` and `abs(sum - 100) <= 0.01`.
   - `portfolio_future_value(monthly: float, months: int, holdings: list[Holding]) -> dict` with keys `total_fv`, `per_asset` (list of `{name, weight_pct, future_value}`).
@@ -253,7 +254,7 @@ git commit -m "feat: core DCA future value with zero-rate and zero-month guards"
 ```python
 # tests/test_portfolio.py
 import pytest
-from core.models import Holding
+from core.portfolio import Holding
 from core.portfolio import validate_allocation, portfolio_future_value
 
 def test_valid_allocation_passes():
@@ -288,9 +289,9 @@ def test_weights_split_the_monthly_contribution():
 - [ ] **Step 2: Run to verify failure**
 
 Run: `.venv/bin/pytest tests/test_portfolio.py -v`
-Expected: FAIL — `ModuleNotFoundError: No module named 'core.models'`
+Expected: FAIL — `ModuleNotFoundError: No module named 'core.portfolio'`
 
-- [ ] **Step 3: Implement `core/models.py`**
+- [ ] **Step 3: Implement `core/presets.py`**
 
 Define the Pydantic models listed in Interfaces with field constraints: `months: int = Field(gt=0)` on `DcaRequest`/`PortfolioRequest`, `win_rate_pct: float = Field(ge=0, le=100)` on `TradingRequest`, `leverage: float = Field(ge=1)`, `capital: float = Field(gt=0)`, `trades: int = Field(gt=0)`, `holdings: list[Holding]`. Define `PRESETS` with the exact values from spec §5.7:
 
@@ -313,7 +314,7 @@ Expected: PASS (6 tests).
 - [ ] **Step 6: Commit**
 
 ```bash
-git add core/models.py core/portfolio.py tests/test_portfolio.py
+git add core/presets.py core/portfolio.py tests/test_portfolio.py tests/test_presets.py
 git commit -m "feat: Pydantic models, presets, and portfolio allocation math"
 ```
 
@@ -481,7 +482,7 @@ git commit -m "feat: trading expectation, break-even WR, profit factor, per-trad
 - Test: `tests/test_sim.py`
 
 **Interfaces:**
-- Consumes: `core.trading.*`, `core.models.PRESETS`.
+- Consumes: `core.trading.*`, `core.presets.PRESETS`.
 - Produces:
   - `compound_equity(capital: float, win_rate_pct: float, trades: int, win_mult: float = 1.04, loss_mult: float = 0.99, fee_rate: float = 0.00026) -> float` — returns final capital; profit is `final - capital`. Win/loss events are interleaved deterministically (alternate starting with a win) so results are reproducible.
   - `sweep_win_rates(preset_key: str, win_rate_pcts: list[float], capital: float, trades: int) -> list[dict]` — each row has `wr`, `net_a`, `net_b`, `net_c`, `sh_a`, `sh_c`.
@@ -606,7 +607,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'api.app'`
 
 - [ ] **Step 3: Implement `api/routes.py` and `api/app.py`**
 
-Each route is a thin call into `core/` with the request model as its parameter and the response model as its return annotation, so `/docs` is accurate. `create_app()` registers the routers and mounts `StaticFiles(directory="web", html=True)` at `/`. `GET /api/presets` returns `core.models.PRESETS` serialised.
+Each route is a thin call into `core/` with the request model as its parameter and the response model as its return annotation, so `/docs` is accurate. `create_app()` registers the routers and mounts `StaticFiles(directory="web", html=True)` at `/`. `GET /api/presets` returns `core.presets.PRESETS` serialised.
 
 - [ ] **Step 4: Run to verify pass**
 
@@ -801,26 +802,26 @@ git commit -m "feat: Simulate tab with win-rate sweep and capital scaling"
 ### Task 14: Migration, README, final verification
 
 **Files:**
-- Move: `CAGR_calculation.py`, `future_value.py`, `stock_allocation.py`, `risk_to_ratio_trading_calculation.py`, `trading-simulation/` → `legacy/`
+- Move: `CAGR_calculation.py`, `future_value.py`, `stock_allocation.py`, `risk_to_ratio_trading_calculation.py`, `trading-simulation/` → `archive/`
 - Modify: `README.md`
 
 **Interfaces:**
 - Consumes: everything.
 - Produces: the finished repository.
 
-- [ ] **Step 1: Move the originals into `legacy/`**
+- [ ] **Step 1: Move the originals into `archive/`**
 
 ```bash
-git mv CAGR_calculation.py legacy/CAGR_calculation.py
-git mv future_value.py legacy/future_value.py
-git mv stock_allocation.py legacy/stock_allocation.py
-git mv risk_to_ratio_trading_calculation.py legacy/risk_to_ratio_trading_calculation.py
-git mv trading-simulation legacy/trading-simulation
+git mv CAGR_calculation.py archive/CAGR_calculation.py
+git mv future_value.py archive/future_value.py
+git mv stock_allocation.py archive/stock_allocation.py
+git mv risk_to_ratio_trading_calculation.py archive/risk_to_ratio_trading_calculation.py
+git mv trading-simulation archive/trading-simulation
 ```
 
 - [ ] **Step 2: Rewrite `README.md`**
 
-Sections: what the app is; how to run (`python3 -m venv .venv`, install, `uvicorn api.app:create_app --factory --port 8000`, open `http://localhost:8000`); the module map; the formulas from spec §5; a note that `legacy/` holds the originals as reference; how to run tests.
+Sections: what the app is; how to run (`python3 -m venv .venv`, install, `uvicorn api.app:create_app --factory --port 8000`, open `http://localhost:8000`); the module map; the formulas from spec §5; a note that `archive/` holds the originals as reference; how to run tests.
 
 - [ ] **Step 3: Full test run**
 
@@ -836,7 +837,7 @@ Expected: all four tabs produce the golden numbers from spec §9. Stop the serve
 
 ```bash
 git add -A
-git commit -m "docs: migrate originals to legacy/ and rewrite README"
+git commit -m "docs: migrate originals to archive/ and rewrite README"
 ```
 
 ---

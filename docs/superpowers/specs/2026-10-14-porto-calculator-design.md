@@ -49,7 +49,7 @@ porto-calculator/
   api/           FastAPI, thin wrappers over core
   web/           index.html, app.js, charts.js, styles.css  (no build step)
   tests/         pytest, golden fixtures from the HTML reports
-  legacy/        the original 4 scripts + 2 HTML files, kept as reference
+  archive/       the original 4 scripts + 2 HTML files, kept as reference
   docs/superpowers/specs/    this document
   pyproject.toml
   README.md
@@ -240,8 +240,8 @@ The $1.90 fee is `fee_spot($2 notional) = max(2*0.005, 0.95) * 2`, confirming th
 
 ## 10. Migration
 
-1. `git mv` the 4 scripts + `trading-simulation/` into `legacy/`.
-2. Optionally rewrite the 4 scripts as thin CLIs importing `core/` (`python -m legacy.future_value`). Decision deferred; `legacy/` is read-only reference by default.
+1. `git mv` the 4 scripts + `trading-simulation/` into `archive/`.
+2. Optionally rewrite the 4 scripts as thin CLIs importing `core/` (`python -m archive.future_value`). Decision deferred; `archive/` is read-only reference by default.
 3. Rewrite `README.md`: what the app is, how to run it, the module map, the formulas, a screenshot section.
 4. `investment_details_20241118_130408.csv` and `csv/` stay as sample data for the DCA/portfolio CSV import (stretch goal, not in initial scope).
 
