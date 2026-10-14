@@ -126,6 +126,7 @@ class SimulateResponse(BaseModel):
     leverage: float
     fee_model: str
     bust_pct: float
+    slippage_pct: float
 
 
 class PresetOut(BaseModel):

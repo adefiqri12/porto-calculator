@@ -185,3 +185,25 @@ def test_invalid_leverage_rejected():
         "win_rate_pct": 50.0, "reward": 4.0, "risk": 1.0,
         "leverage": 0.5, "fee_model": "futures", "capital": 100.0, "trades": 100})
     assert r.status_code == 422
+
+def test_simulate_response_echoes_every_request_parameter():
+    """Every request field must come back on the response.
+
+    The route already passes these through, but pydantic silently ignores
+    undeclared fields, so a missing schema attribute turns the echo into a
+    no-op that no other test would notice.
+    """
+    req = {"capital": 100.0, "risk_pct": 1.0, "stop_pct": 5.0, "rr": 4.0,
+           "leverage": 10.0, "fee_model": "futures", "bust_pct": 10.0,
+           "slippage_pct": 2.5, "n_sims": 10}
+    body = client.post("/api/simulate", json=req).json()
+    for field, want in req.items():
+        if field in ("n_sims",):
+            continue
+        assert body[field] == want, (field, body.get(field), want)
+
+def test_simulate_rows_carry_kelly_pct():
+    body = client.post("/api/simulate", json={"n_sims": 10, "win_rate_pcts": [50.0]}).json()
+    assert isinstance(body["rows"][0]["kelly_pct"], float)
+    assert body["summary"]["kelly_wr"] == 50.0
+    assert body["summary"]["kelly_half_pct"] == pytest.approx(body["summary"]["kelly_pct"] / 2.0)
