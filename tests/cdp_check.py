@@ -147,7 +147,7 @@ async def main():
             print("cards:", sim["cards"])
             print("rows:", sim["rows"], "first row:", sim["row"])
             print("err:", repr(sim["err"]))
-            want_cols = ["WR", "Mean net", "P(success)", "P(busted)", "Expectancy", "Sharpe"]
+            want_cols = ["WR", "Mean net", "P(success)", "P(busted)", "Max DD", "Expectancy", "Sharpe"]
             if sim["heads"] != want_cols:
                 ok = False
                 print("   FAIL: columns were", sim["heads"])
@@ -158,6 +158,28 @@ async def main():
             if "P(success)" not in sim["heads"] or "P(busted)" not in sim["heads"]:
                 ok = False
                 print("   FAIL: P(success)/P(busted) columns missing")
+
+            # Colour rule: P(success) must be green (class "win") only once it
+            # clears 75%, and never red at or above 75%. P(busted) is opposite:
+            # red (class "lose") at or above 50%. Reading the rendered class in a
+            # real browser is the only way to catch a polarity flip here.
+            pct_txt = await ev(
+                "(function(){var p=document.getElementById('panel-Simulate');"
+                "return [].map.call(p.querySelectorAll('#sim-table tbody tr'),function(tr){"
+                "var td=[].slice.call(tr.querySelectorAll('td'));"
+                "return [parseFloat(td[2].textContent),td[2].className,"
+                "parseFloat(td[3].textContent),td[3].className];});})()"
+            )
+            for p_succ, ps_cls, p_bust, pb_cls in pct_txt:
+                if p_succ >= 75.0 and "win" not in ps_cls:
+                    ok = False
+                    print("   FAIL: P(success)=%.1f%% should be green, class=%r" % (p_succ, ps_cls))
+                if p_succ < 75.0 and "win" in ps_cls:
+                    ok = False
+                    print("   FAIL: P(success)=%.1f%% should not be green, class=%r" % (p_succ, ps_cls))
+                if p_bust >= 50.0 and "lose" not in pb_cls:
+                    ok = False
+                    print("   FAIL: P(busted)=%.1f%% should be red, class=%r" % (p_bust, pb_cls))
             if sim["rows"] < 1 or "%" not in sim["row"]:
                 ok = False
                 print("   FAIL: no simulation rows rendered")

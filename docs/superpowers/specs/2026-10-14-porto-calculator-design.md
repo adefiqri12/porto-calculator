@@ -177,7 +177,7 @@ Four tabs, single page, no framework, no build.
 1. **Invest** — CAGR + DCA. Inputs: total return, years, monthly amount, annual ROI, months. Output: summary cards + yearly table + growth chart.
 2. **Portfolio** — allocation editor (rows of name / weight / ROI), weight-sum validation shown live, per-asset and total future value.
 3. **Trading** — strategy presets A/B/C, win-rate slider, fee model selector, leverage, capital. Output: net/gross profit table across win rates, Sharpe table, break-even marker, liquidation warning when `liq_distance < sl_distance`.
-4. **Simulate** — manual strategy plus a seeded Monte Carlo run. Inputs: capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model, trades, win-rate from/to (%), number of simulations, bust level (% of capital). Output: a per-win-rate table (WR, mean net, P(success), P(busted), expectancy, Sharpe). See §13.
+4. **Simulate** — manual strategy plus a seeded Monte Carlo run. Inputs: capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model, trades, win-rate from/to (%), number of simulations, bust level (% of capital). Output: a per-win-rate table (WR, mean net, P(success), P(busted), max drawdown, expectancy, Sharpe). See §13.
 
 Interaction: input `change`/`input` event -> 150 ms debounce -> `fetch` POST -> re-render table + redraw chart. Charts use a dependency-free canvas bar/line renderer (`web/charts.js`), modelled on the `barChart` already in the HTML reports. No CDN.
 
@@ -313,9 +313,12 @@ The futures and spot fee models are the §5.4 models.
 
 ### 13.4 Output
 
-A per-win-rate table with columns: WR, Mean net, P(success), P(busted), Expectancy,
-Sharpe. A summary carries the best win rate by mean net and by P(success), plus the
-worst ruin win rate.
+A per-win-rate table with columns: WR, Mean net, P(success), P(busted), Max DD,
+Expectancy, Sharpe. Max DD is the mean of each path's worst peak-to-trough fall,
+reported as a percentage of the running peak; a path that only rises has 0%. A
+summary carries the best win rate by mean net and by P(success), plus the worst
+ruin win rate. Colour is per-column and polarity-aware: P(success) is green once
+it clears 75%, P(busted) turns red at 50%, and Max DD turns red at 50% depth.
 
 ### 13.5 API contract
 

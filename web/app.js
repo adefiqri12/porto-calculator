@@ -350,14 +350,26 @@
 
         $("#sim-table tbody").innerHTML = res.rows.map(function (r) {
           var cls = function (v) { return v >= 0 ? "win" : "lose"; };
-          var risk = function (v) {
+          // P(success): higher is better, so green once it clears 75%.
+          var pGood = function (v) {
+            var c = v >= 0.75 ? "win" : (v >= 0.5 ? "warnc" : "lose");
+            return "<td class='num " + c + "'>" + pct(v * 100, 1) + "</td>";
+          };
+          // P(busted): higher is worse.
+          var pBad = function (v) {
             var c = v >= 0.5 ? "lose" : (v >= 0.2 ? "warnc" : "win");
             return "<td class='num " + c + "'>" + pct(v * 100, 1) + "</td>";
           };
+          // Drawdown: a deeper fall is worse.
+          var dd = function (v) {
+            var c = v >= 50 ? "lose" : (v >= 25 ? "warnc" : "win");
+            return "<td class='num " + c + "'>" + pct(v, 1) + "</td>";
+          };
           return "<tr><td>" + numf(r.wr, 0) + "%</td>" +
             "<td class='num " + cls(r.mean_net) + "'>" + usd(r.mean_net) + "</td>" +
-            risk(r.p_success) +
-            risk(r.p_busted) +
+            pGood(r.p_success) +
+            pBad(r.p_busted) +
+            dd(r.mean_max_dd) +
             "<td class='num " + cls(r.expectancy) + "'>" + usd(r.expectancy) + "</td>" +
             "<td class='num'>" + numf(r.sharpe, 3) + "</td></tr>";
         }).join("");

@@ -62,9 +62,17 @@ def _run_once(
     rng: random.Random, capital: float, risk_pct: float, stop_pct: float,
     rr: float, leverage: float, fee_model: str, trades: int,
     win_prob: float, bust_level: float,
-) -> float:
-    """One Monte Carlo path. Returns the final equity (bust_level if busted)."""
+) -> tuple[float, float]:
+    """One Monte Carlo path.
+
+    Returns ``(final_equity, max_drawdown_pct)``. Final equity is ``bust_level``
+    if the path busted. Max drawdown is the deepest peak-to-trough fall in
+    equity seen anywhere in the path, as a percentage of the running peak, so a
+    path that doubles and then halves records a 50% drawdown.
+    """
     equity = float(capital)
+    peak = equity
+    max_dd = 0.0
     stop_frac = stop_pct / 100.0
     for _ in range(trades):
         risk_usd = equity * risk_pct / 100.0
@@ -78,9 +86,20 @@ def _run_once(
             equity += risk_usd * rr - fee
         else:
             equity -= risk_usd + fee
+        if equity > peak:
+            peak = equity
+        if peak > 0.0:
+            dd = (peak - equity) / peak * 100.0
+            # A drawdown cannot meaningfully exceed 100% of the peak: once you
+            # have lost the whole peak there is nothing left to lose. Extreme
+            # leverage can drive equity negative within a single trade, so clamp.
+            if dd > 100.0:
+                dd = 100.0
+            if dd > max_dd:
+                max_dd = dd
         if equity <= bust_level:
-            return bust_level
-    return equity
+            return bust_level, max_dd
+    return equity, max_dd
 
 
 def simulate(
@@ -110,11 +129,13 @@ def simulate(
     bust_level = capital * bust_pct / 100.0
     rng = random.Random(seed)
 
-    finals = [
-        _run_once(rng, capital, risk_pct, stop_pct, rr, leverage,
-                  fee_model, trades, win_prob, bust_level)
-        for _ in range(n_sims)
-    ]
+    finals = []
+    drawdowns = []
+    for _ in range(n_sims):
+        final, dd = _run_once(rng, capital, risk_pct, stop_pct, rr, leverage,
+                              fee_model, trades, win_prob, bust_level)
+        finals.append(final)
+        drawdowns.append(dd)
 
     nets = [f - capital for f in finals]
     busted = sum(1 for f in finals if f <= bust_level + 1e-12)
@@ -136,6 +157,8 @@ def simulate(
         "median_net": statistics.median(nets),
         "p_success": succeeded / n_sims,
         "p_busted": busted / n_sims,
+        "mean_max_dd": statistics.fmean(drawdowns),
+        "worst_max_dd": max(drawdowns),
         "expectancy": win_prob * reward_usd - (1.0 - win_prob) * risk_usd - fee,
         "sharpe": sharpe_per_trade(win_prob, reward_usd, risk_usd, fee),
         "notional": notional,

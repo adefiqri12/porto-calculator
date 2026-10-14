@@ -156,6 +156,45 @@ def test_reward_risk_moves_break_even_win_rate():
         assert r["expectancy"] == pytest.approx(-r["fee_per_trade"], abs=1e-9)
 
 
+def test_drawdown_is_reported_and_bounded():
+    r = simulate(win_rate_pct=50.0, **BASE)
+    assert 0.0 <= r["mean_max_dd"] <= 100.0
+    assert 0.0 <= r["worst_max_dd"] <= 100.0
+    # The worst path can never be shallower than the average.
+    assert r["worst_max_dd"] >= r["mean_max_dd"]
+
+
+def test_drawdown_grows_with_risk():
+    low = simulate(win_rate_pct=50.0, **{**BASE, "risk_pct": 1.0})
+    high = simulate(win_rate_pct=50.0, **{**BASE, "risk_pct": 20.0})
+    assert high["mean_max_dd"] > low["mean_max_dd"]
+
+
+def test_drawdown_shrinks_with_a_better_edge():
+    bad = simulate(win_rate_pct=20.0, **BASE)
+    good = simulate(win_rate_pct=60.0, **BASE)
+    assert good["mean_max_dd"] < bad["mean_max_dd"]
+
+
+def test_winning_path_with_no_losses_has_zero_drawdown():
+    # 100% win rate: equity only ever rises, so drawdown is exactly 0.
+    r = simulate(win_rate_pct=100.0, **BASE)
+    assert r["mean_max_dd"] == pytest.approx(0.0, abs=1e-9)
+    assert r["worst_max_dd"] == pytest.approx(0.0, abs=1e-9)
+
+
+def test_extreme_leverage_cannot_report_over_100pct_drawdown():
+    # risk_pct=100 makes risk_usd equal the whole equity, and stop_pct=50 keeps
+    # the leverage cap from binding, so a single loss drives equity below zero
+    # purely through the fee. Raw drawdown would then exceed 100%; the reported
+    # figure must be clamped to exactly 100.0, not just "under 100".
+    r = simulate(win_rate_pct=50.0, **{**BASE, "capital": 1000.0, "risk_pct": 100.0,
+                                       "stop_pct": 50.0, "leverage": 10.0,
+                                       "trades": 5, "n_sims": 500})
+    assert r["worst_max_dd"] == pytest.approx(100.0)
+    assert 0.0 <= r["mean_max_dd"] <= 100.0
+
+
 def test_default_seed_is_stable():
     assert DEFAULT_SEED == 12345
     assert simulate(win_rate_pct=50.0, **BASE) == simulate(win_rate_pct=50.0, **BASE)

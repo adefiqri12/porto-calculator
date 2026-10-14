@@ -50,6 +50,7 @@
       "th.mean_net": "Rata-rata net",
       "th.p_success": "P(sukses)",
       "th.p_busted": "P(bangkrut)",
+      "th.max_dd": "Max DD",
       "th.expectancy": "Ekspektansi",
       "th.sharpe": "Sharpe",
 
@@ -133,6 +134,7 @@
       "th.mean_net": "Mean net",
       "th.p_success": "P(success)",
       "th.p_busted": "P(busted)",
+      "th.max_dd": "Max DD",
       "th.expectancy": "Expectancy",
       "th.sharpe": "Sharpe",
 

@@ -105,6 +105,8 @@ class SimulateRow(BaseModel):
     median_net: float
     p_success: float
     p_busted: float
+    mean_max_dd: float
+    worst_max_dd: float
     expectancy: float
     sharpe: float
     notional: float
