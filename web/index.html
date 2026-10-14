@@ -153,12 +153,14 @@
       </label>
       <label><span data-i18n="label.risk_pct">Risk per trade (%)</span>
         <input type="number" id="sim-risk-pct" value="1" step="any" min="0">
+        <input type="range" id="sim-risk-range" min="0" max="25" step="0.25" value="1">
       </label>
       <label><span data-i18n="label.stop_pct">Stop distance (%)</span>
         <input type="number" id="sim-stop-pct" value="5" step="any" min="0.01">
       </label>
       <label><span data-i18n="label.rr">Reward : risk</span>
         <input type="number" id="sim-rr" value="4" step="any" min="0.01">
+        <input type="range" id="sim-rr-range" min="0.5" max="10" step="0.1" value="4">
       </label>
       <label><span data-i18n="label.leverage">Leverage</span>
         <input type="number" id="sim-lev" value="10" step="any" min="1">
@@ -174,15 +176,21 @@
       </label>
       <label><span data-i18n="label.win_rate_from">Win rate from (%)</span>
         <input type="number" id="sim-min" value="20" step="any" min="0" max="100">
+        <input type="range" id="sim-min-range" min="0" max="100" step="1" value="20">
       </label>
       <label><span data-i18n="label.win_rate_to">Win rate to (%)</span>
         <input type="number" id="sim-max" value="60" step="any" min="0" max="100">
+        <input type="range" id="sim-max-range" min="0" max="100" step="1" value="60">
       </label>
       <label><span data-i18n="label.sims">Simulations</span>
         <input type="number" id="sim-sims" value="1000" step="any" min="1">
       </label>
       <label><span data-i18n="label.bust_pct">Bust level (% of capital)</span>
         <input type="number" id="sim-bust-pct" value="10" step="any" min="0">
+      </label>
+      <label><span data-i18n="label.slippage">Slippage (%)</span>
+        <input type="number" id="sim-slip" value="0" step="0.05" min="0">
+        <input type="range" id="sim-slip-range" min="0" max="5" step="0.05" value="0">
       </label>
     </div>
     <div class="cards" id="sim-cards"></div>

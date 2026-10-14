@@ -109,6 +109,7 @@ def post_simulate(req: schemas.SimulateRequest) -> schemas.SimulateResponse:
             win_rate_pcts=req.win_rate_pcts,
             n_sims=req.n_sims,
             bust_pct=req.bust_pct,
+            slippage_pct=req.slippage_pct,
         )
         summary = mc.summarise(rows)
     except ValueError as exc:
@@ -123,4 +124,5 @@ def post_simulate(req: schemas.SimulateRequest) -> schemas.SimulateResponse:
         leverage=req.leverage,
         fee_model=req.fee_model,
         bust_pct=req.bust_pct,
+        slippage_pct=req.slippage_pct,
     )

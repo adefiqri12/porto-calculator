@@ -40,7 +40,7 @@ Four tabs, all live (change an input, results update):
 | **Invest** | total return, years, monthly amount, annual ROI, months | CAGR, future value, total invested, total return, yearly table + chart |
 | **Portfolio** | monthly amount, months, per-asset name/weight/ROI | per-asset and total future value, live weight-sum validation |
 | **Trading** | preset, win rate, fee model, leverage, capital, trades | EV, break-even win rate, profit factor, Sharpe, net profit, liquidation warning |
-| **Simulate** | capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model (futures/spot), trades, win-rate from/to (%), simulations, bust level (% of capital) | per-win-rate table: WR, mean net, P(success), P(busted), max drawdown, expectancy, Sharpe (seeded Monte Carlo). P(success) shows green at or above 75%. |
+| **Simulate** | capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model (futures/spot), trades, win-rate from/to (%), simulations, bust level (% of capital), slippage (%) - risk, reward:risk, win-rate bounds and slippage also have range sliders | per-win-rate table: WR, mean net, P(success), P(busted), max drawdown, expectancy, Sharpe (seeded Monte Carlo), plus a Kelly / half-Kelly sizing card. P(success) shows green at or above 75%. |
 
 Currency (IDR/USD) and language (id/en) are togglable in the header. The
 whole UI is translated, not just part of it: `web/i18n.js` holds the `id`/`en`
@@ -77,7 +77,7 @@ invariant is enforced by `tests/test_core_is_pure.py`.
 | `core/presets.py` | strategy presets A / B / C / fomo |
 | `core/fees.py` | futures and spot fee models, liquidation distance |
 | `core/trading.py` | expected value, break-even WR, profit factor, per-trade Sharpe |
-| `core/mc.py` | seeded Monte Carlo engine: manual strategy, resampled win/loss order, P(success) / P(busted) |
+| `core/mc.py` | seeded Monte Carlo engine: manual strategy, resampled win/loss order, stop slippage, P(success) / P(busted) / max drawdown, Kelly sizing |
 | `core/sim.py` | golden-fixture reference only (A/B/C); no longer served by the API |
 
 ## Formulas

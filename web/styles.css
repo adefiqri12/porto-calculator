@@ -42,6 +42,7 @@ h3{font-size:15px; margin:28px 0 8px; color:var(--mut); text-transform:uppercase
   border-radius:7px; padding:9px 11px; font-size:14px; width:100%;
 }
 .grid input:focus,.grid select:focus{outline:none; border-color:var(--a)}
+.grid input[type=range]{padding:0; border:0; background:transparent; accent-color:var(--a); cursor:pointer}
 .cards{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:16px 0}
 .card{background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:13px 15px}
 .card h4{margin:0 0 5px; font-size:11px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; font-weight:600}

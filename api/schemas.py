@@ -95,6 +95,7 @@ class SimulateRequest(BaseModel):
     win_rate_pcts: list[float] = Field(default_factory=lambda: [20.0, 30.0, 40.0, 50.0, 60.0])
     n_sims: int = Field(default=1000, gt=0, le=20000)
     bust_pct: float = Field(default=10.0, ge=0)
+    slippage_pct: float = Field(default=0.0, ge=0, le=100)
 
 
 class SimulateRow(BaseModel):
@@ -111,6 +112,7 @@ class SimulateRow(BaseModel):
     sharpe: float
     notional: float
     fee_per_trade: float
+    kelly_pct: float
     n_sims: int
 
 

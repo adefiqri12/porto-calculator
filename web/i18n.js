@@ -38,6 +38,7 @@
       "label.rr": "Reward : risiko",
       "label.sims": "Jumlah simulasi",
       "label.bust_pct": "Batas bangkrut (% modal)",
+      "label.slippage": "Slippage (%)",
 
       "th.year": "Tahun",
       "th.contributed": "Disetor",
@@ -69,12 +70,14 @@
       "card.best_net": "Terbaik (laba)",
       "card.ruin": "Risiko bangkrut",
       "card.notional": "Ukuran posisi",
+      "card.kelly": "Risiko Kelly",
 
       "note.per_year": "per tahun",
       "note.per_trade": "per trade",
       "note.not_annualised": "per trade, tidak disetahunkan",
       "note.price_move": "pergerakan harga",
       "note.trades": "trade",
+      "note.half_kelly": "setengah",
 
       "btn.add_asset": "+ Tambah aset",
 
@@ -122,6 +125,7 @@
       "label.rr": "Reward : risk",
       "label.sims": "Simulations",
       "label.bust_pct": "Bust level (% of capital)",
+      "label.slippage": "Slippage (%)",
 
       "th.year": "Year",
       "th.contributed": "Contributed",
@@ -153,12 +157,14 @@
       "card.best_net": "Best by net",
       "card.ruin": "Ruin risk",
       "card.notional": "Position size",
+      "card.kelly": "Kelly risk",
 
       "note.per_year": "per year",
       "note.per_trade": "per trade",
       "note.not_annualised": "per trade, not annualised",
       "note.price_move": "price move",
       "note.trades": "trades",
+      "note.half_kelly": "half",
 
       "btn.add_asset": "+ Add asset",
 

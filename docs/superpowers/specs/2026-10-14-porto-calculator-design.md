@@ -293,8 +293,15 @@ notional = min(notional, equity * leverage)     # leverage caps exposure
 risk_usd = notional * (stop_pct / 100)          # risk shrinks if the cap bound
 fee      = fee model applied to notional
 win  -> equity += risk_usd * rr - fee
-lose -> equity -= risk_usd + fee
+lose -> equity -= risk_usd + notional * (slippage_pct / 100) + fee
 ```
+
+The position is always sized from the **planned** stop. On a losing trade the exit
+slips by `slippage_pct`, so the realized loss is wider than planned. That is the
+real-world failure mode of sizing for a stop that does not fill, and it is what
+gives `stop_pct` real teeth: a 2% stop with 3% slippage turns a winning strategy
+into a losing one. Winning trades are unaffected, so slippage is not symmetric
+and cannot be modelled as a haircut on the edge.
 
 The futures and spot fee models are the §5.4 models.
 
@@ -310,6 +317,21 @@ The futures and spot fee models are the §5.4 models.
   across win rates; the Monte Carlo mean already includes compounding.
 - Everything is seeded (default seed 12345), so identical input reproduces identical
   output. Each win rate gets its own derived seed, so rows are independent yet stable.
+- **Kelly sizing** (`kelly_fraction`) is reported as a card, at the middle win rate of
+  the swept range, both full and halved. It uses the general two-outcome form rather
+  than `p - q/rr`, because fees and slippage make the win and loss multiples
+  asymmetric: with `s = stop_pct/100`, `k = fee per unit notional`, and
+  `slip = slippage_pct/100`,
+
+  ```
+  a  = rr - k/s             net win per unit risked
+  d  = 1 + (slip + k)/s     net loss per unit risked
+  f* = (p*a - q*d) / (a*d)
+  ```
+
+  Clamped to `[0, 1]`, and 0.0 when the edge is not positive. Half Kelly is shown
+  alongside because full Kelly assumes the win rate is exactly right, and it is
+  brutally sensitive to that assumption being wrong.
 
 ### 13.4 Output
 
@@ -317,28 +339,49 @@ A per-win-rate table with columns: WR, Mean net, P(success), P(busted), Max DD,
 Expectancy, Sharpe. Max DD is the mean of each path's worst peak-to-trough fall,
 reported as a percentage of the running peak; a path that only rises has 0%. A
 summary carries the best win rate by mean net and by P(success), plus the worst
-ruin win rate. Colour is per-column and polarity-aware: P(success) is green once
-it clears 75%, P(busted) turns red at 50%, and Max DD turns red at 50% depth.
+ruin win rate and the Kelly figures. Colour is per-column and polarity-aware:
+P(success) is green once it clears 75%, P(busted) turns red at 50%, and Max DD
+turns red at 50% depth.
 
-### 13.5 API contract
+Risk per trade, reward:risk, both win-rate bounds, and slippage each have a range
+slider paired with their number input, so the tab can be driven by dragging.
+Because a slider drag mutates `.value` (which does not fire an `input` event), the
+slider handler must mirror the value **and** trigger a re-render explicitly.
+
+### 13.5 Performance
+
+A default run is 9 win rates x 1000 simulations x 100 trades, about 900k simulated
+trades. `_run_once` inlines the fee from a precomputed `(num, den, floor, mult)`
+decomposition instead of calling `core.fees` per trade, which is roughly 1.5x
+faster (1.2s to 0.84s) and keeps the tab responsive enough for sliders. That
+decomposition is written to be **bit-identical** to `core.fees`, including the
+multiply-then-divide order (`n * pct / 100`, not `n * (pct / 100)`, which is one
+ULP off). `tests/test_mc.py` asserts exact equality against `core.fees` and against
+a naive reference implementation of the loop, so the optimisation cannot drift
+away from the model it claims to implement.
+
+### 13.6 API contract
 
 ```
 POST /api/simulate
   request:  {capital, risk_pct, stop_pct, rr, leverage, fee_model, trades,
-             win_rate_pcts[], n_sims, bust_pct}
+             win_rate_pcts[], n_sims, bust_pct, slippage_pct}
   response: {rows: [{wr, mean_final, median_final, mean_net, median_net,
-             p_success, p_busted, expectancy, sharpe, notional, fee_per_trade, n_sims}],
-             summary: {best_wr, best_mean_net, best_p_success, worst_ruin_wr, worst_ruin_p},
-             capital, risk_pct, stop_pct, rr, leverage, fee_model, bust_pct}
+             p_success, p_busted, mean_max_dd, worst_max_dd, expectancy,
+             sharpe, notional, fee_per_trade, kelly_pct, n_sims}],
+             summary: {best_wr, best_mean_net, best_p_success, worst_ruin_wr,
+             worst_ruin_p, kelly_pct, kelly_half_pct, kelly_wr},
+             capital, risk_pct, stop_pct, rr, leverage, fee_model, bust_pct,
+             slippage_pct}
 ```
 
 Unknown `fee_model` or invalid numeric input returns HTTP 422.
 
-### 13.6 core/sim.py survives as the golden reference only
+### 13.7 core/sim.py survives as the golden reference only
 
 `core/sim.py` (the A/B/C sweep, equity curve, and capital scaling) is no longer served
 by the API. It remains only as the golden-fixture reference implementation that
 `tests/test_golden.py` checks against the archived HTML reports. `core/presets.py`
 still backs the Trading tab quick-fill dropdown via `GET /api/presets`, unchanged.
 
-New files: `core/mc.py` (the Monte Carlo engine) and `tests/test_mc.py` (30 tests).
+New files: `core/mc.py` (the Monte Carlo engine) and `tests/test_mc.py`.

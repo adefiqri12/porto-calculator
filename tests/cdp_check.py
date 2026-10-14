@@ -89,12 +89,20 @@ async def main():
 
             async def read_tab(tab):
                 await ev('document.querySelector(\'[data-tab="%s"]\').click()' % tab)
-                await asyncio.sleep(1.2)
-                return await ev(
-                    "(function(){var p=document.getElementById('panel-%s');"
-                    "return {cards:[].map.call(p.querySelectorAll('.cards h4'),function(h){return h.textContent}),"
-                    "err:(p.querySelector('.err')||{}).textContent||''};})()" % tab
-                )
+                # Simulate is debounced and genuinely computes for ~1s, so a fixed
+                # sleep either flakes or wastes time. Poll for the cards instead.
+                cards = []
+                for _ in range(20):
+                    await asyncio.sleep(0.5)
+                    res = await ev(
+                        "(function(){var p=document.getElementById('panel-%s');"
+                        "return {cards:[].map.call(p.querySelectorAll('.cards h4'),function(h){return h.textContent}),"
+                        "err:(p.querySelector('.err')||{}).textContent||''};})()" % tab
+                    )
+                    cards = res["cards"]
+                    if cards or res["err"]:
+                        return res
+                return res
 
             ok = True
             print("== language: id (default) ==")
@@ -151,7 +159,7 @@ async def main():
             if sim["heads"] != want_cols:
                 ok = False
                 print("   FAIL: columns were", sim["heads"])
-            want_cards = ["Best by net", "Ruin risk", "Position size"]
+            want_cards = ["Best by net", "Ruin risk", "Position size", "Kelly risk"]
             if sim["cards"] != want_cards:
                 ok = False
                 print("   FAIL: cards were", sim["cards"])
@@ -201,6 +209,44 @@ async def main():
                      "document.querySelector('#sim-risk-pct').dispatchEvent(new Event('input'));")
             await asyncio.sleep(2.0)
 
+            # A slider must drive the run itself. Assigning .value does not fire
+            # an `input` event, so wiring the slider only to the number box
+            # silently leaves the table stale on every drag.
+            print("\n== Simulate: dragging the risk slider re-runs the simulation ==")
+            before = await ev("document.querySelector('#sim-table tbody tr').textContent")
+            sync = await ev(
+                "(function(){var r=document.querySelector('#sim-risk-range');"
+                "var n=document.querySelector('#sim-risk-pct');"
+                "r.value='12'; r.dispatchEvent(new Event('input',{bubbles:true}));"
+                "return {range:r.value, number:n.value};})()"
+            )
+            await asyncio.sleep(2.5)
+            after = await ev("document.querySelector('#sim-table tbody tr').textContent")
+            print("range/number:", sync)
+            print("before:", before[:60])
+            print("after: ", after[:60])
+            if sync["number"] != sync["range"]:
+                ok = False
+                print("   FAIL: slider did not mirror its value into the number input")
+            if before == after:
+                ok = False
+                print("   FAIL: dragging the slider did not re-run the simulation")
+            # Slippage must be wired through too: it is the newest input.
+            print("\n== Simulate: slippage degrades the result ==")
+            no_slip = await ev("document.querySelector('#sim-table tbody tr').textContent")
+            await ev("document.querySelector('#sim-slip').value='3';"
+                     "document.querySelector('#sim-slip').dispatchEvent(new Event('input'));")
+            await asyncio.sleep(2.5)
+            with_slip = await ev("document.querySelector('#sim-table tbody tr').textContent")
+            print("slip 0%:", no_slip[:60])
+            print("slip 3%:", with_slip[:60])
+            if no_slip == with_slip:
+                ok = False
+                print("   FAIL: slippage had no effect on the results")
+            await ev("document.querySelector('#sim-slip').value='0';"
+                     "document.querySelector('#sim-slip').dispatchEvent(new Event('input'));")
+            await asyncio.sleep(2.0)
+
             print("\n== switch back to id, currency IDR ==")
             await ev("var l=document.querySelector('#lang');l.value='id';l.dispatchEvent(new Event('change'));"
                      "var c=document.querySelector('#currency');c.value='IDR';c.dispatchEvent(new Event('change'));")
@@ -214,7 +260,8 @@ async def main():
             await ev(
                 "localStorage.setItem('porto-calculator.inputs.v1', JSON.stringify({"
                 "lang:'en',currency:'USD','dca-monthly':'500','dca-months':'24',"
-                "'cagr-return':'150','cagr-years':'5','dca-roi':'12'}));"
+                "'cagr-return':'150','cagr-years':'5','dca-roi':'12',"
+                "'sim-slip':'2.5','sim-risk-pct':'3'}));"
             )
             await send("Page.reload", {})
             await asyncio.sleep(3)
@@ -223,13 +270,22 @@ async def main():
                 "lang:document.querySelector('#lang').value,"
                 "currency:document.querySelector('#currency').value,"
                 "tab:document.querySelector('.tab.is-active').textContent,"
+                "slip:document.querySelector('#sim-slip').value,"
+                "risk:document.querySelector('#sim-risk-pct').value,"
+                "riskRange:document.querySelector('#sim-risk-range').value,"
                 "fv:(document.querySelector('#invest-cards .big.b')||{}).textContent||''};})()"
             )
             print("restored:", state)
-            for field, want in (("lang", "en"), ("currency", "USD"), ("tab", "Invest")):
+            for field, want in (("lang", "en"), ("currency", "USD"), ("tab", "Invest"),
+                                ("slip", "2.5"), ("risk", "3")):
                 if state.get(field) != want:
                     ok = False
                     print("   FAIL: %s restored as %r, expected %r" % (field, state.get(field), want))
+            # A restored number input must drag its slider along, otherwise the
+            # slider shows a stale value and the first drag jumps.
+            if state.get("riskRange") != "3":
+                ok = False
+                print("   FAIL: risk slider did not follow the restored value:", state.get("riskRange"))
             if "13,621.6" not in state.get("fv", ""):
                 ok = False
                 print("   FAIL: recomputed future value was %r, expected 13,621.6" % state.get("fv"))

@@ -130,6 +130,36 @@ def test_simulate_rejects_n_sims_above_cap():
     assert client.post("/api/simulate", json={"n_sims": 20001}).status_code == 422
 
 
+def test_simulate_rows_carry_kelly_pct():
+    r = client.post("/api/simulate", json={
+        "capital": 100.0, "risk_pct": 1.0, "stop_pct": 5.0, "rr": 4.0,
+        "leverage": 10.0, "fee_model": "futures", "trades": 100,
+        "win_rate_pcts": [50.0], "n_sims": 200, "slippage_pct": 0.0,
+    })
+    assert r.status_code == 200
+    row = r.json()["rows"][0]
+    assert "kelly_pct" in row
+    assert isinstance(row["kelly_pct"], float)
+    # 50% at 4:1 is a real edge, so the fraction is strictly positive.
+    assert row["kelly_pct"] > 0.0
+
+
+def test_simulate_slippage_lowers_first_row_mean_net():
+    payload = {"capital": 100.0, "risk_pct": 1.0, "stop_pct": 5.0, "rr": 4.0,
+               "leverage": 10.0, "fee_model": "futures", "trades": 100,
+               "win_rate_pcts": [50.0], "n_sims": 300}
+    clean = client.post("/api/simulate", json={**payload, "slippage_pct": 0.0})
+    slipped = client.post("/api/simulate", json={**payload, "slippage_pct": 5.0})
+    assert clean.status_code == 200
+    assert slipped.status_code == 200
+    assert slipped.json()["rows"][0]["mean_net"] < clean.json()["rows"][0]["mean_net"]
+
+
+def test_simulate_rejects_negative_slippage():
+    r = client.post("/api/simulate", json={"slippage_pct": -1.0})
+    assert r.status_code == 422
+
+
 def test_simulate_no_longer_accepts_preset():
     # The preset field was removed; an unknown key is ignored, so this must not
     # resurrect the old A/B/C behaviour and must still return the new shape.

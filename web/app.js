@@ -68,7 +68,7 @@
     "tr-lev", "tr-capital", "tr-trades", "tr-notional", "tr-reward", "tr-risk",
     "tr-wr", "tr-fee",
     "sim-capital", "sim-risk-pct", "sim-stop-pct", "sim-rr", "sim-lev",
-    "sim-fee", "sim-trades", "sim-min", "sim-max", "sim-sims", "sim-bust-pct",
+    "sim-fee", "sim-trades", "sim-min", "sim-max", "sim-sims", "sim-bust-pct", "sim-slip",
     "currency", "lang"
   ];
 
@@ -340,13 +340,15 @@
         trades: Math.max(1, Math.round(num("#sim-trades"))),
         win_rate_pcts: wrs,
         n_sims: nSims,
-        bust_pct: num("#sim-bust-pct")
+        bust_pct: num("#sim-bust-pct"),
+        slippage_pct: num("#sim-slip")
       }).then(function (res) {
         var s = res.summary;
         $("#sim-cards").innerHTML =
           card(T("card.best_net"), pct(s.best_wr, 0) + " WR", usd(s.best_mean_net), "b") +
           card(T("card.ruin"), pct(s.worst_ruin_wr, 0) + " WR", pct(s.worst_ruin_p * 100, 1), "warnc") +
-          card(T("card.notional"), usd(res.rows[0].notional, 2), usd(res.rows[0].fee_per_trade, 4) + " / " + T("note.trades"), "");
+          card(T("card.notional"), usd(res.rows[0].notional, 2), usd(res.rows[0].fee_per_trade, 4) + " / " + T("note.trades"), "") +
+          card(T("card.kelly"), pct(s.kelly_pct, 2), pct(s.kelly_wr, 0) + " WR \u00b7 " + T("note.half_kelly") + " " + pct(s.kelly_half_pct, 2), "");
 
         $("#sim-table tbody").innerHTML = res.rows.map(function (r) {
           var cls = function (v) { return v >= 0 ? "win" : "lose"; };
@@ -432,9 +434,27 @@
 
     var reSim = debounce(renderSimulate);
     ["#sim-min", "#sim-max", "#sim-capital", "#sim-trades", "#sim-risk-pct",
-     "#sim-stop-pct", "#sim-rr", "#sim-lev", "#sim-sims", "#sim-bust-pct"
+     "#sim-stop-pct", "#sim-rr", "#sim-lev", "#sim-sims", "#sim-bust-pct", "#sim-slip"
     ].forEach(function (s) { $(s).addEventListener("input", reSim); });
     $("#sim-fee").addEventListener("change", reSim);
+
+    // Keep each number input and its range slider in sync, either direction.
+    [["#sim-risk-pct", "#sim-risk-range"],
+     ["#sim-rr", "#sim-rr-range"],
+     ["#sim-min", "#sim-min-range"],
+     ["#sim-max", "#sim-max-range"],
+     ["#sim-slip", "#sim-slip-range"]
+    ].forEach(function (pair) {
+      var numberEl = $(pair[0]), rangeEl = $(pair[1]);
+      rangeEl.value = numberEl.value;
+      numberEl.addEventListener("input", function () { rangeEl.value = numberEl.value; });
+      // Assigning .value does not fire an `input` event, so the renderer would
+      // never see a slider drag. Mirror the value and re-render explicitly.
+      rangeEl.addEventListener("input", function () {
+        numberEl.value = rangeEl.value;
+        reSim();
+      });
+    });
 
     window.addEventListener("resize", debounce(function () {
       setTab(document.querySelector(".tab.is-active").getAttribute("data-tab"));
