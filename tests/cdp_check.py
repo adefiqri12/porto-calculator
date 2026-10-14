@@ -7,6 +7,7 @@ i18n wiring can be confirmed rather than assumed.
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -22,10 +23,13 @@ ERRORS = []
 
 
 async def main():
+    # A unique profile per run. Reusing one lets localStorage leak between runs,
+    # which made the "default language" observation depend on the previous run.
+    profile = tempfile.mkdtemp(prefix="porto-cdp-")
     proc = subprocess.Popen([
         "google-chrome", "--headless=new", "--disable-gpu", "--no-sandbox",
         "--remote-debugging-port=%d" % PORT,
-        "--user-data-dir=" + os.path.join(tempfile.gettempdir(), "porto-cdp-profile"),
+        "--user-data-dir=" + profile,
         "about:blank",
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -94,7 +98,13 @@ async def main():
 
             ok = True
             print("== language: id (default) ==")
-            print("tabs:", await ev("[].map.call(document.querySelectorAll('.tab'),function(b){return b.textContent})"))
+            default_tabs = await ev("[].map.call(document.querySelectorAll('.tab'),function(b){return b.textContent})")
+            print("tabs:", default_tabs)
+            # A fresh profile must start in Indonesian. If this shows English,
+            # either the default regressed or the profile was not clean.
+            if default_tabs != ["Investasi", "Portofolio", "Trading", "Simulasi"]:
+                ok = False
+                print("   FAIL: default language is not Indonesian:", default_tabs)
             for tab in ("Invest", "Portfolio", "Trading", "Simulate"):
                 res = await read_tab(tab)
                 print("%-10s cards=%s err=%r" % (tab, res["cards"], res["err"]))
@@ -211,6 +221,7 @@ async def main():
             return 0 if ok else 1
     finally:
         proc.kill()
+        shutil.rmtree(profile, ignore_errors=True)
 
 
 sys.exit(asyncio.run(main()))
