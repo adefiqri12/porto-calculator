@@ -114,6 +114,61 @@ async def main():
                         ok = False
                         print("   FAIL: untranslated key leaked:", c)
 
+            print("\n== Simulate: manual inputs drive the Monte Carlo table ==")
+            await ev("var s=document.querySelector('#lang');s.value='en';s.dispatchEvent(new Event('change'));")
+            await asyncio.sleep(0.6)
+            await ev('document.querySelector(\'[data-tab="Simulate"]\').click()')
+            await asyncio.sleep(1.0)
+            # A small, fast run so the check stays quick.
+            await ev("document.querySelector('#sim-sims').value='200';"
+                     "document.querySelector('#sim-trades').value='50';")
+            await ev("document.querySelector('#sim-sims').dispatchEvent(new Event('input'));")
+            await asyncio.sleep(2.5)
+            sim = await ev(
+                "(function(){var p=document.getElementById('panel-Simulate');"
+                "return {heads:[].map.call(p.querySelectorAll('#sim-table thead th'),"
+                "function(h){return h.textContent}),"
+                "row:(p.querySelector('#sim-table tbody tr')||{}).textContent||'',"
+                "rows:p.querySelectorAll('#sim-table tbody tr').length,"
+                "cards:[].map.call(p.querySelectorAll('.cards h4'),function(h){return h.textContent}),"
+                "err:(p.querySelector('.err')||{}).textContent||''};})()"
+            )
+            print("columns:", sim["heads"])
+            print("cards:", sim["cards"])
+            print("rows:", sim["rows"], "first row:", sim["row"])
+            print("err:", repr(sim["err"]))
+            want_cols = ["WR", "Mean net", "P(success)", "P(busted)", "Expectancy", "Sharpe"]
+            if sim["heads"] != want_cols:
+                ok = False
+                print("   FAIL: columns were", sim["heads"])
+            want_cards = ["Best by net", "Ruin risk", "Position size"]
+            if sim["cards"] != want_cards:
+                ok = False
+                print("   FAIL: cards were", sim["cards"])
+            if "P(success)" not in sim["heads"] or "P(busted)" not in sim["heads"]:
+                ok = False
+                print("   FAIL: P(success)/P(busted) columns missing")
+            if sim["rows"] < 1 or "%" not in sim["row"]:
+                ok = False
+                print("   FAIL: no simulation rows rendered")
+            if sim["err"]:
+                ok = False
+
+            print("\n== Simulate: changing risk per trade changes the result ==")
+            before = await ev("document.querySelector('#sim-table tbody tr').textContent")
+            await ev("document.querySelector('#sim-risk-pct').value='10';"
+                     "document.querySelector('#sim-risk-pct').dispatchEvent(new Event('input'));")
+            await asyncio.sleep(2.5)
+            after = await ev("document.querySelector('#sim-table tbody tr').textContent")
+            print("before:", before[:70])
+            print("after: ", after[:70])
+            if before == after:
+                ok = False
+                print("   FAIL: risk per trade had no effect on the results")
+            await ev("document.querySelector('#sim-risk-pct').value='1';"
+                     "document.querySelector('#sim-risk-pct').dispatchEvent(new Event('input'));")
+            await asyncio.sleep(2.0)
+
             print("\n== switch back to id, currency IDR ==")
             await ev("var l=document.querySelector('#lang');l.value='id';l.dispatchEvent(new Event('change'));"
                      "var c=document.querySelector('#currency');c.value='IDR';c.dispatchEvent(new Event('change'));")

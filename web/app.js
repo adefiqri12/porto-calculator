@@ -66,7 +66,9 @@
     "cagr-return", "cagr-years", "dca-monthly", "dca-roi", "dca-months",
     "pf-monthly", "pf-months",
     "tr-lev", "tr-capital", "tr-trades", "tr-notional", "tr-reward", "tr-risk",
-    "tr-wr", "tr-fee", "sim-min", "sim-max", "sim-capital", "sim-trades",
+    "tr-wr", "tr-fee",
+    "sim-capital", "sim-risk-pct", "sim-stop-pct", "sim-rr", "sim-lev",
+    "sim-fee", "sim-trades", "sim-min", "sim-max", "sim-sims", "sim-bust-pct",
     "currency", "lang"
   ];
 
@@ -314,50 +316,60 @@
     return out;
   }
 
+  var simTimer = null;
+
   function renderSimulate() {
     showErr("#sim-err", "");
     var lo = num("#sim-min"), hi = num("#sim-max");
     if (hi < lo) { var t = lo; lo = hi; hi = t; }
     var step = Math.max(1, Math.round((hi - lo) / 8) || 1);
     var wrs = range(lo, hi, step);
+    var nSims = Math.max(1, Math.round(num("#sim-sims")));
 
-    postJSON("/api/simulate", {
-      preset: "A",
-      win_rate_pcts: wrs,
-      capital: num("#sim-capital"),
-      trades: Math.max(1, Math.round(num("#sim-trades")))
-    }).then(function (res) {
-      $("#sim-cards").innerHTML =
-        card(T("card.best_sharpe"), res.best_by_sharpe.strategy, numf(res.best_by_sharpe.sharpe, 3), "a") +
-        card(T("card.best_net"), res.best_by_net.strategy, usd(res.best_by_net.net), "b");
+    // Monte Carlo with many runs and many rows is genuinely slow, so debounce
+    // longer and never let two requests overlap.
+    clearTimeout(simTimer);
+    simTimer = setTimeout(function () {
+      postJSON("/api/simulate", {
+        capital: num("#sim-capital"),
+        risk_pct: num("#sim-risk-pct"),
+        stop_pct: num("#sim-stop-pct"),
+        rr: num("#sim-rr"),
+        leverage: num("#sim-lev"),
+        fee_model: $("#sim-fee").value,
+        trades: Math.max(1, Math.round(num("#sim-trades"))),
+        win_rate_pcts: wrs,
+        n_sims: nSims,
+        bust_pct: num("#sim-bust-pct")
+      }).then(function (res) {
+        var s = res.summary;
+        $("#sim-cards").innerHTML =
+          card(T("card.best_net"), pct(s.best_wr, 0) + " WR", usd(s.best_mean_net), "b") +
+          card(T("card.ruin"), pct(s.worst_ruin_wr, 0) + " WR", pct(s.worst_ruin_p * 100, 1), "warnc") +
+          card(T("card.notional"), usd(res.rows[0].notional, 2), usd(res.rows[0].fee_per_trade, 4) + " / " + T("note.trades"), "");
 
-      $("#sim-table tbody").innerHTML = res.rows.map(function (r) {
-        var cls = function (v) { return v >= 0 ? "win" : "lose"; };
-        return "<tr><td>" + numf(r.wr, 0) + "%</td>" +
-          "<td class='num " + cls(r.net_a) + "'>" + usd(r.net_a) + "</td>" +
-          "<td class='num " + cls(r.net_b) + "'>" + usd(r.net_b) + "</td>" +
-          "<td class='num " + cls(r.net_c) + "'>" + usd(r.net_c) + "</td>" +
-          "<td class='num'>" + usd(r.gross_a) + "</td>" +
-          "<td class='num'>" + usd(r.gross_c) + "</td>" +
-          "<td class='num'>" + numf(r.sh_a, 3) + "</td>" +
-          "<td class='num'>" + numf(r.sh_c, 3) + "</td></tr>";
-      }).join("");
+        $("#sim-table tbody").innerHTML = res.rows.map(function (r) {
+          var cls = function (v) { return v >= 0 ? "win" : "lose"; };
+          var risk = function (v) {
+            var c = v >= 0.5 ? "lose" : (v >= 0.2 ? "warnc" : "win");
+            return "<td class='num " + c + "'>" + pct(v * 100, 1) + "</td>";
+          };
+          return "<tr><td>" + numf(r.wr, 0) + "%</td>" +
+            "<td class='num " + cls(r.mean_net) + "'>" + usd(r.mean_net) + "</td>" +
+            risk(r.p_success) +
+            risk(r.p_busted) +
+            "<td class='num " + cls(r.expectancy) + "'>" + usd(r.expectancy) + "</td>" +
+            "<td class='num'>" + numf(r.sharpe, 3) + "</td></tr>";
+        }).join("");
 
-      Charts.lineChart($("#sim-chart"),
-        res.rows.map(function (r) { return numf(r.wr, 0) + "%"; }),
-        [
-          { name: "A", color: "#58a6ff", values: res.rows.map(function (r) { return r.net_a; }) },
-          { name: "B", color: "#3fb950", values: res.rows.map(function (r) { return r.net_b; }) },
-          { name: "C", color: "#f0883e", values: res.rows.map(function (r) { return r.net_c; }) }
-        ]);
-
-      $("#sim-cap-table tbody").innerHTML = res.capital_rows.map(function (r) {
-        return "<tr><td>" + usd(r.capital, 0) + "</td>" +
-          "<td class='num'>" + usd(r.fixed_value) + "</td>" +
-          "<td class='num'>" + usd(r.percent_value) + "</td>" +
-          "<td class='num'>" + usd(r.compounding_value) + "</td></tr>";
-      }).join("");
-    }).catch(function (e) { showErr("#sim-err", e.message); });
+        Charts.lineChart($("#sim-chart"),
+          res.rows.map(function (r) { return numf(r.wr, 0) + "%"; }),
+          [
+            { name: T("th.p_success"), color: "#3fb950", values: res.rows.map(function (r) { return r.p_success * 100; }) },
+            { name: T("th.p_busted"), color: "#f85149", values: res.rows.map(function (r) { return r.p_busted * 100; }) }
+          ]);
+      }).catch(function (e) { showErr("#sim-err", e.message); });
+    }, 250);
   }
 
   /* ---------------- init ---------------- */
@@ -407,9 +419,10 @@
       .forEach(function (s) { $(s).addEventListener("input", reTr); });
 
     var reSim = debounce(renderSimulate);
-    ["#sim-min", "#sim-max", "#sim-capital", "#sim-trades"].forEach(function (s) {
-      $(s).addEventListener("input", reSim);
-    });
+    ["#sim-min", "#sim-max", "#sim-capital", "#sim-trades", "#sim-risk-pct",
+     "#sim-stop-pct", "#sim-rr", "#sim-lev", "#sim-sims", "#sim-bust-pct"
+    ].forEach(function (s) { $(s).addEventListener("input", reSim); });
+    $("#sim-fee").addEventListener("change", reSim);
 
     window.addEventListener("resize", debounce(function () {
       setTab(document.querySelector(".tab.is-active").getAttribute("data-tab"));

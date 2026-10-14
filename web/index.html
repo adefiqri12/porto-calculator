@@ -146,50 +146,58 @@
 
   <!-- ============ SIMULATE ============ -->
   <section class="panel" id="panel-Simulate">
-    <p class="sub" data-i18n="sub.simulate">Sweep win rate across the three sizing strategies. Amounts in USD.</p>
+    <p class="sub" data-i18n="sub.simulate">Manual strategy, swept across win rates with a Monte Carlo simulation. Amounts in USD.</p>
     <div class="grid">
-      <label><span data-i18n="label.win_rate_from">Win rate from (%)</span>
-        <input type="number" id="sim-min" value="20" step="any">
-      </label>
-      <label><span data-i18n="label.win_rate_to">Win rate to (%)</span>
-        <input type="number" id="sim-max" value="60" step="any">
-      </label>
       <label><span data-i18n="label.capital">Capital</span>
-        <select id="sim-capital">
-          <option value="100">$100</option>
-          <option value="500">$500</option>
-          <option value="1000">$1000</option>
+        <input type="number" id="sim-capital" value="100" step="any" min="1">
+      </label>
+      <label><span data-i18n="label.risk_pct">Risk per trade (%)</span>
+        <input type="number" id="sim-risk-pct" value="1" step="any" min="0">
+      </label>
+      <label><span data-i18n="label.stop_pct">Stop distance (%)</span>
+        <input type="number" id="sim-stop-pct" value="5" step="any" min="0.01">
+      </label>
+      <label><span data-i18n="label.rr">Reward : risk</span>
+        <input type="number" id="sim-rr" value="4" step="any" min="0.01">
+      </label>
+      <label><span data-i18n="label.leverage">Leverage</span>
+        <input type="number" id="sim-lev" value="10" step="any" min="1">
+      </label>
+      <label><span data-i18n="label.fee_model">Fee model</span>
+        <select id="sim-fee">
+          <option value="futures" data-i18n="opt.futures">Futures</option>
+          <option value="spot" data-i18n="opt.spot">Spot</option>
         </select>
       </label>
       <label><span data-i18n="label.trades">Trades</span>
-        <input type="number" id="sim-trades" value="100" step="any">
+        <input type="number" id="sim-trades" value="100" step="any" min="1">
+      </label>
+      <label><span data-i18n="label.win_rate_from">Win rate from (%)</span>
+        <input type="number" id="sim-min" value="20" step="any" min="0" max="100">
+      </label>
+      <label><span data-i18n="label.win_rate_to">Win rate to (%)</span>
+        <input type="number" id="sim-max" value="60" step="any" min="0" max="100">
+      </label>
+      <label><span data-i18n="label.sims">Simulations</span>
+        <input type="number" id="sim-sims" value="1000" step="any" min="1">
+      </label>
+      <label><span data-i18n="label.bust_pct">Bust level (% of capital)</span>
+        <input type="number" id="sim-bust-pct" value="10" step="any" min="0">
       </label>
     </div>
     <div class="cards" id="sim-cards"></div>
     <table id="sim-table">
       <thead><tr>
         <th data-i18n="th.wr">WR</th>
-        <th class="num" data-i18n="th.net_a">Net A</th>
-        <th class="num" data-i18n="th.net_b">Net B</th>
-        <th class="num" data-i18n="th.net_c">Net C</th>
-        <th class="num" data-i18n="th.gross_a">Gross A</th>
-        <th class="num" data-i18n="th.gross_c">Gross C</th>
-        <th class="num" data-i18n="th.sh_a">Sharpe A</th>
-        <th class="num" data-i18n="th.sh_c">Sharpe C</th>
+        <th class="num" data-i18n="th.mean_net">Mean net</th>
+        <th class="num" data-i18n="th.p_success">P(success)</th>
+        <th class="num" data-i18n="th.p_busted">P(busted)</th>
+        <th class="num" data-i18n="th.expectancy">Expectancy</th>
+        <th class="num" data-i18n="th.sharpe">Sharpe</th>
       </tr></thead>
       <tbody></tbody>
     </table>
     <canvas id="sim-chart" height="280"></canvas>
-    <h3 data-i18n="h3.capital_scaling">Capital scaling</h3>
-    <table id="sim-cap-table">
-      <thead><tr>
-        <th data-i18n="th.capital">Capital</th>
-        <th class="num" data-i18n="th.fixed">Fixed</th>
-        <th class="num" data-i18n="th.percent">Percent</th>
-        <th class="num" data-i18n="th.compounding">Compounding</th>
-      </tr></thead>
-      <tbody></tbody>
-    </table>
     <div class="err" id="sim-err"></div>
   </section>
 

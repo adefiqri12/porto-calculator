@@ -1,6 +1,13 @@
-"""Win-rate sweeps, compounding equity, and capital scaling.
+"""Reference implementation of the three archived-report strategies.
 
-Three sizing models, all present in the reference reports:
+This module exists to prove the port is faithful: ``tests/test_golden.py``
+checks these functions against the numbers scraped out of the HTML reports in
+``archive/trading-simulation``. It is NOT used by the app any more. The
+Simulate tab no longer offers strategies A/B/C; it takes manual inputs and runs
+``core/mc.py``. ``core/presets.py`` still backs the Trading tab's quick-fill
+dropdown.
+
+The three sizing models:
 
 - fixed:      constant $2 margin regardless of account size (strategies A, C)
 - percent:    margin = pct% of the *initial* capital, constant notional per trade

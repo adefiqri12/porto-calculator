@@ -1,12 +1,17 @@
 """Route handlers. Each is a thin call into core/ with validated I/O."""
 from fastapi import APIRouter, HTTPException
 
-from core import dca, fees, portfolio, rates, sim, trading
+from core import dca, fees, mc, portfolio, rates, trading
 from core.presets import PRESETS
 
 from . import schemas
 
 router = APIRouter(prefix="/api")
+
+# ~15s of worst-case work on a single core. Enough for any sensible request
+# (the defaults are 9 rows x 1000 sims x 100 trades = 900k) while refusing the
+# combinations that would make the server appear to hang.
+MAX_TOTAL_PATHS = 20_000_000
 
 
 @router.get("/health")
@@ -76,22 +81,46 @@ def post_trading(req: schemas.TradingRequest) -> schemas.TradingResponse:
 
 @router.post("/simulate", response_model=schemas.SimulateResponse)
 def post_simulate(req: schemas.SimulateRequest) -> schemas.SimulateResponse:
-    if req.preset not in PRESETS:
-        raise HTTPException(status_code=422, detail=f"unknown preset: {req.preset}")
-    rows = sim.sweep_win_rates(req.preset, req.win_rate_pcts, req.capital, req.trades)
-    capital_rows = sim.capital_scaling(req.preset, [100.0, 500.0, 1000.0], 50.0, req.trades)
-    mid = min(rows, key=lambda r: abs(r["wr"] - 50.0))
-    best_sharpe = max(
-        ({"strategy": "A", "sharpe": mid["sh_a"]}, {"strategy": "C", "sharpe": mid["sh_c"]}),
-        key=lambda d: d["sharpe"],
-    )
-    best_net = max(
-        ({"strategy": "A", "net": mid["net_a"]},
-         {"strategy": "B", "net": mid["net_b"]},
-         {"strategy": "C", "net": mid["net_c"]}),
-        key=lambda d: d["net"],
-    )
+    if req.fee_model not in ("futures", "spot"):
+        raise HTTPException(status_code=422, detail=f"unknown fee_model: {req.fee_model}")
+    # The simulation is pure Python and the server is single-threaded, so a
+    # careless combination of rows, runs, and trades could block it for minutes.
+    # Bound the total work and say so plainly rather than hanging.
+    total_paths = len(req.win_rate_pcts) * req.n_sims * req.trades
+    if total_paths > MAX_TOTAL_PATHS:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"simulation too large: {total_paths:,} simulated trades "
+                f"(win rates x simulations x trades) exceeds the limit of "
+                f"{MAX_TOTAL_PATHS:,}. Reduce the number of simulations, "
+                f"trades, or win-rate steps."
+            ),
+        )
+    try:
+        rows = mc.sweep(
+            capital=req.capital,
+            risk_pct=req.risk_pct,
+            stop_pct=req.stop_pct,
+            rr=req.rr,
+            leverage=req.leverage,
+            fee_model=req.fee_model,
+            trades=req.trades,
+            win_rate_pcts=req.win_rate_pcts,
+            n_sims=req.n_sims,
+            bust_pct=req.bust_pct,
+        )
+        summary = mc.summarise(rows)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     return schemas.SimulateResponse(
-        rows=rows, capital_rows=capital_rows,
-        best_by_sharpe=best_sharpe, best_by_net=best_net,
+        rows=[schemas.SimulateRow(**r) for r in rows],
+        summary=summary,
+        capital=req.capital,
+        risk_pct=req.risk_pct,
+        stop_pct=req.stop_pct,
+        rr=req.rr,
+        leverage=req.leverage,
+        fee_model=req.fee_model,
+        bust_pct=req.bust_pct,
     )

@@ -79,6 +79,15 @@ def test_no_reference_to_undeclared_global():
     assert "window.localStorage" in APP
 
 
+def test_no_unused_keys():
+    # Dead keys accumulate when a feature is removed (the A/B/C Simulate table
+    # left 14 behind). Keep the dictionary honest.
+    used = set(re.findall(r'data-i18n(?:-title)?="([^"]+)"', HTML))
+    used |= set(re.findall(r'(?:I18n\.t|T)\("([^"]+)"\)', APP))
+    unused = sorted(EN_KEYS - used)
+    assert unused == [], unused
+
+
 def test_tabs_are_translatable_but_keep_stable_hooks():
     # data-tab stays literal English (stable selector); the visible label is keyed.
     for tab in ("Invest", "Portfolio", "Trading", "Simulate"):

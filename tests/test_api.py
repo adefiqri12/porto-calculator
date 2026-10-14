@@ -78,18 +78,64 @@ def test_trading_no_warning_for_strategy_a():
 
 
 def test_simulate_endpoint():
-    r = client.post("/api/simulate", json={"preset": "A", "capital": 100.0, "trades": 100})
+    r = client.post("/api/simulate", json={
+        "capital": 100.0, "risk_pct": 1.0, "stop_pct": 5.0, "rr": 4.0,
+        "leverage": 10.0, "fee_model": "futures", "trades": 100,
+        "win_rate_pcts": [20.0, 50.0], "n_sims": 200, "bust_pct": 10.0,
+    })
     assert r.status_code == 200
     body = r.json()
+    assert [row["wr"] for row in body["rows"]] == [20.0, 50.0]
     row50 = next(x for x in body["rows"] if x["wr"] == 50.0)
-    assert row50["net_a"] == pytest.approx(147.40, abs=0.01)
-    assert body["best_by_sharpe"]["strategy"] in {"A", "C"}
-    assert body["best_by_net"]["strategy"] in {"A", "B", "C"}
+    for field in ("mean_net", "p_success", "p_busted", "expectancy", "sharpe"):
+        assert field in row50
+    assert 0.0 <= row50["p_success"] <= 1.0
+    assert 0.0 <= row50["p_busted"] <= 1.0
+    # Sharpe at rr 4:1 / WR 50% reproduces the archived report value.
+    assert row50["sharpe"] == pytest.approx(0.590, abs=1e-3)
+    assert body["summary"]["best_wr"] in (20.0, 50.0)
 
 
-def test_simulate_rejects_unknown_preset():
-    r = client.post("/api/simulate", json={"preset": "Z"})
+def test_simulate_is_deterministic_across_requests():
+    payload = {"capital": 100.0, "risk_pct": 1.0, "stop_pct": 5.0, "rr": 4.0,
+               "leverage": 10.0, "fee_model": "futures", "trades": 100,
+               "win_rate_pcts": [50.0], "n_sims": 300}
+    first = client.post("/api/simulate", json=payload).json()
+    second = client.post("/api/simulate", json=payload).json()
+    assert first == second
+
+
+def test_simulate_rejects_unknown_fee_model():
+    r = client.post("/api/simulate", json={"fee_model": "Z"})
     assert r.status_code == 422
+
+
+def test_simulate_rejects_invalid_numbers():
+    for bad in ({"risk_pct": -1}, {"stop_pct": 0}, {"rr": 0}, {"leverage": 0},
+                {"n_sims": 0}, {"capital": 0}):
+        assert client.post("/api/simulate", json=bad).status_code == 422, bad
+
+
+def test_simulate_rejects_oversized_request():
+    # 20 win rates x 20000 sims x 2000 trades is far past the work limit.
+    r = client.post("/api/simulate", json={
+        "win_rate_pcts": [float(w) for w in range(20, 40)],
+        "n_sims": 20000, "trades": 2000,
+    })
+    assert r.status_code == 422
+    assert "too large" in r.json()["detail"]
+
+
+def test_simulate_rejects_n_sims_above_cap():
+    assert client.post("/api/simulate", json={"n_sims": 20001}).status_code == 422
+
+
+def test_simulate_no_longer_accepts_preset():
+    # The preset field was removed; an unknown key is ignored, so this must not
+    # resurrect the old A/B/C behaviour and must still return the new shape.
+    r = client.post("/api/simulate", json={"preset": "A", "n_sims": 10})
+    assert r.status_code == 200
+    assert "rows" in r.json() and "p_success" in r.json()["rows"][0]
 
 
 def test_invalid_months_rejected():

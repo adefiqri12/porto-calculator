@@ -85,17 +85,43 @@ class TradingResponse(BaseModel):
 
 
 class SimulateRequest(BaseModel):
-    preset: str = "A"
-    win_rate_pcts: list[float] = Field(default_factory=lambda: [20.0, 30.0, 40.0, 50.0, 60.0])
     capital: float = Field(default=100.0, gt=0)
+    risk_pct: float = Field(default=1.0, ge=0, le=100)
+    stop_pct: float = Field(default=5.0, gt=0)
+    rr: float = Field(default=4.0, gt=0)
+    leverage: float = Field(default=10.0, ge=1)
+    fee_model: str = "futures"
     trades: int = Field(default=100, gt=0)
+    win_rate_pcts: list[float] = Field(default_factory=lambda: [20.0, 30.0, 40.0, 50.0, 60.0])
+    n_sims: int = Field(default=1000, gt=0, le=20000)
+    bust_pct: float = Field(default=10.0, ge=0)
+
+
+class SimulateRow(BaseModel):
+    wr: float
+    mean_final: float
+    median_final: float
+    mean_net: float
+    median_net: float
+    p_success: float
+    p_busted: float
+    expectancy: float
+    sharpe: float
+    notional: float
+    fee_per_trade: float
+    n_sims: int
 
 
 class SimulateResponse(BaseModel):
-    rows: list[dict]
-    capital_rows: list[dict]
-    best_by_sharpe: dict
-    best_by_net: dict
+    rows: list[SimulateRow]
+    summary: dict
+    capital: float
+    risk_pct: float
+    stop_pct: float
+    rr: float
+    leverage: float
+    fee_model: str
+    bust_pct: float
 
 
 class PresetOut(BaseModel):

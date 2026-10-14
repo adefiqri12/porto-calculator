@@ -66,7 +66,8 @@ Dependency direction is one-way: `web → api → core`. `core` imports nothing 
 | `core/portfolio.py` | `stock_allocation.py` | `validate_allocation(weights)`, `portfolio_future_value(...)` |
 | `core/fees.py` | hardcoded HTML numbers | `percent_fee(notional, pct, sides)`, `min_fee(notional, pct, floor, sides)`, `funding(notional, pct)`, `liquidation_price(leverage, entry, side)` |
 | `core/trading.py` | `risk_to_ratio_*.py` + both HTML | `expected_value(...)`, `break_even_win_rate(rr)`, `profit_factor(...)`, `sharpe_per_trade(...)`, `net_profit(...)` |
-| `core/sim.py` | new | `sweep_win_rates(...)`, `equity_curve(...)`, `compound_equity(...)` |
+| `core/sim.py` | new | `sweep_win_rates(...)`, `equity_curve(...)`, `compound_equity(...)` — now the golden-fixture reference only (see §13) |
+| `core/mc.py` | new | seeded Monte Carlo engine: `simulate(...)` over a manually specified strategy (see §13) |
 | `core/models.py` | new | Pydantic request/response schemas shared by core and api |
 
 ## 5. Domain model — exact definitions
@@ -164,7 +165,7 @@ POST /api/cagr              -> {total_return_pct, years} -> {cagr_pct}
 POST /api/dca               -> {monthly, annual_roi_pct, months} -> {future_value, total_invested, total_return, yearly[]}
 POST /api/portfolio         -> {monthly, months, holdings:[{name, weight_pct, annual_roi_pct}]} -> {total_fv, per_asset[]}
 POST /api/trading           -> {win_rate_pct, reward, risk, leverage, fee_model, capital, trades} -> {ev, break_even_wr, profit_factor, sharpe, net_profit}
-POST /api/simulate          -> {preset, win_rate_range, capital, trades} -> {rows[], best_by_sharpe, best_by_net}
+POST /api/simulate          -> see §13 (manual strategy + seeded Monte Carlo)
 ```
 
 Validation lives in Pydantic: `months > 0`, `0 <= win_rate_pct <= 100`, `leverage >= 1`, `weights` sum to 100, `capital > 0`. Invalid input returns HTTP 422 with field-level detail; no custom error format.
@@ -176,7 +177,7 @@ Four tabs, single page, no framework, no build.
 1. **Invest** — CAGR + DCA. Inputs: total return, years, monthly amount, annual ROI, months. Output: summary cards + yearly table + growth chart.
 2. **Portfolio** — allocation editor (rows of name / weight / ROI), weight-sum validation shown live, per-asset and total future value.
 3. **Trading** — strategy presets A/B/C, win-rate slider, fee model selector, leverage, capital. Output: net/gross profit table across win rates, Sharpe table, break-even marker, liquidation warning when `liq_distance < sl_distance`.
-4. **Simulate** — win-rate sweep 20-60% for all presets at once, comparison chart, "best by Sharpe" / "best by net" callouts.
+4. **Simulate** — manual strategy plus a seeded Monte Carlo run. Inputs: capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model, trades, win-rate from/to (%), number of simulations, bust level (% of capital). Output: a per-win-rate table (WR, mean net, P(success), P(busted), expectancy, Sharpe). See §13.
 
 Interaction: input `change`/`input` event -> 150 ms debounce -> `fetch` POST -> re-render table + redraw chart. Charts use a dependency-free canvas bar/line renderer (`web/charts.js`), modelled on the `barChart` already in the HTML reports. No CDN.
 
@@ -263,3 +264,78 @@ The $1.90 fee is `fee_spot($2 notional) = max(2*0.005, 0.95) * 2`, confirming th
 4. `api/` endpoints + API tests.
 5. `web/` shell, then one tab at a time (Invest -> Portfolio -> Trading -> Simulate).
 6. Migration, README, final verification pass.
+
+## 13. Revision: manual strategy + Monte Carlo
+
+This section records a change made after the build order above. It supersedes the
+Simulate descriptions in §4, §6, and §7 where they conflict; the earlier numbered
+sections are kept as written and are not renumbered.
+
+### 13.1 A/B/C removed from Simulate
+
+The Simulate tab previously swept three hardcoded strategy presets (A/B/C) and showed
+a comparison table, a capital-scaling table, and "best by Sharpe" / "best by net"
+callouts. All of that is removed. The user now enters a strategy manually and the app
+runs a seeded Monte Carlo simulation over it. The capital-scaling table is gone.
+
+### 13.2 Manual input model
+
+Inputs: capital, risk per trade (%), stop distance (%), reward:risk ratio, leverage,
+fee model (futures/spot), trades, win-rate from (%), win-rate to (%), number of
+simulations, bust level (% of capital).
+
+Position model per trade, compounding on current equity:
+
+```
+risk_usd = equity * risk_pct / 100
+notional = risk_usd / (stop_pct / 100)          # size implied by the stop
+notional = min(notional, equity * leverage)     # leverage caps exposure
+risk_usd = notional * (stop_pct / 100)          # risk shrinks if the cap bound
+fee      = fee model applied to notional
+win  -> equity += risk_usd * rr - fee
+lose -> equity -= risk_usd + fee
+```
+
+The futures and spot fee models are the §5.4 models.
+
+### 13.3 Monte Carlo semantics
+
+- The engine (`core/mc.py`) resamples win/loss **order** for a fixed win probability,
+  over `trades` trades per run, `n_sims` runs per win rate. It is not a backtest and it
+  uses no market data.
+- A run is **busted** when equity reaches the bust level (`bust_pct`% of starting
+  capital); the path stops there. A run is a **success** if it ends above the starting
+  capital.
+- Expectancy and Sharpe are computed at the starting capital so they stay comparable
+  across win rates; the Monte Carlo mean already includes compounding.
+- Everything is seeded (default seed 12345), so identical input reproduces identical
+  output. Each win rate gets its own derived seed, so rows are independent yet stable.
+
+### 13.4 Output
+
+A per-win-rate table with columns: WR, Mean net, P(success), P(busted), Expectancy,
+Sharpe. A summary carries the best win rate by mean net and by P(success), plus the
+worst ruin win rate.
+
+### 13.5 API contract
+
+```
+POST /api/simulate
+  request:  {capital, risk_pct, stop_pct, rr, leverage, fee_model, trades,
+             win_rate_pcts[], n_sims, bust_pct}
+  response: {rows: [{wr, mean_final, median_final, mean_net, median_net,
+             p_success, p_busted, expectancy, sharpe, notional, fee_per_trade, n_sims}],
+             summary: {best_wr, best_mean_net, best_p_success, worst_ruin_wr, worst_ruin_p},
+             capital, risk_pct, stop_pct, rr, leverage, fee_model, bust_pct}
+```
+
+Unknown `fee_model` or invalid numeric input returns HTTP 422.
+
+### 13.6 core/sim.py survives as the golden reference only
+
+`core/sim.py` (the A/B/C sweep, equity curve, and capital scaling) is no longer served
+by the API. It remains only as the golden-fixture reference implementation that
+`tests/test_golden.py` checks against the archived HTML reports. `core/presets.py`
+still backs the Trading tab quick-fill dropdown via `GET /api/presets`, unchanged.
+
+New files: `core/mc.py` (the Monte Carlo engine) and `tests/test_mc.py` (30 tests).
