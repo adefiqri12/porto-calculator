@@ -20,6 +20,13 @@ Run the tests:
 .venv/bin/pytest -q
 ```
 
+To check the UI end to end (real clicks on every tab, language toggle, and
+console errors) against a running server:
+
+```bash
+.venv/bin/python tests/cdp_check.py
+```
+
 ## What it does
 
 Four tabs, all live (change an input, results update):
@@ -31,7 +38,15 @@ Four tabs, all live (change an input, results update):
 | **Trading** | preset, win rate, fee model, leverage, capital, trades | EV, break-even win rate, profit factor, Sharpe, net profit, liquidation warning |
 | **Simulate** | win-rate range, capital, trades | A/B/C comparison table, capital scaling, best-by-Sharpe / best-by-net |
 
-Currency (IDR/USD) and language (id/en) are togglable in the header.
+Currency (IDR/USD) and language (id/en) are togglable in the header. The
+whole UI is translated, not just part of it: `web/i18n.js` holds the `id`/`en`
+dictionary, static markup carries `data-i18n="key"` attributes, and generated
+text calls `I18n.t()`. Indonesian and IDR are the defaults. `tests/test_i18n.py`
+fails if any referenced key is missing from either language.
+
+Inputs (and the language/currency choice) persist in `localStorage`, so the app
+reopens where you left it. Nothing is sent to a server, and there is no account.
+Persistence is best-effort: if storage is unavailable the calculator still works.
 
 ## Architecture
 

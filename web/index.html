@@ -3,23 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Porto Calculator</title>
+<title data-i18n-title="app.title">Porto Calculator</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23111827'/%3E%3Cpath d='M6 22 L12 14 L17 18 L26 8' stroke='%2334d399' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <header class="topbar">
   <div class="brand">
-    <span class="dot"></span> Porto Calculator
+    <span class="dot"></span> <span data-i18n="app.title">Porto Calculator</span>
   </div>
   <div class="controls">
-    <label>Currency
+    <label><span data-i18n="header.currency">Currency</span>
       <select id="currency">
         <option value="IDR">IDR</option>
         <option value="USD">USD</option>
       </select>
     </label>
-    <label>Language
+    <label><span data-i18n="header.language">Language</span>
       <select id="lang">
         <option value="id">Indonesia</option>
         <option value="en">English</option>
@@ -29,37 +30,42 @@
 </header>
 
 <nav class="tabs" id="tabs">
-  <button class="tab is-active" data-tab="Invest">Invest</button>
-  <button class="tab" data-tab="Portfolio">Portfolio</button>
-  <button class="tab" data-tab="Trading">Trading</button>
-  <button class="tab" data-tab="Simulate">Simulate</button>
+  <button class="tab is-active" data-tab="Invest" data-i18n="tab.invest">Invest</button>
+  <button class="tab" data-tab="Portfolio" data-i18n="tab.portfolio">Portfolio</button>
+  <button class="tab" data-tab="Trading" data-i18n="tab.trading">Trading</button>
+  <button class="tab" data-tab="Simulate" data-i18n="tab.simulate">Simulate</button>
 </nav>
 
 <main>
 
   <!-- ============ INVEST ============ -->
   <section class="panel is-active" id="panel-Invest">
-    <p class="sub">CAGR and dollar-cost-averaging future value.</p>
+    <p class="sub" data-i18n="sub.invest">CAGR and dollar-cost-averaging future value.</p>
     <div class="grid">
-      <label>Total return (%)
+      <label><span data-i18n="label.total_return">Total return (%)</span>
         <input type="number" id="cagr-return" value="150" step="any">
       </label>
-      <label>Years
+      <label><span data-i18n="label.years">Years</span>
         <input type="number" id="cagr-years" value="5" step="any">
       </label>
-      <label>Monthly amount
+      <label><span data-i18n="label.monthly">Monthly amount</span>
         <input type="number" id="dca-monthly" value="1000000" step="any">
       </label>
-      <label>Annual ROI (%)
+      <label><span data-i18n="label.annual_roi">Annual ROI (%)</span>
         <input type="number" id="dca-roi" value="12" step="any">
       </label>
-      <label>Months
+      <label><span data-i18n="label.months">Months</span>
         <input type="number" id="dca-months" value="12" step="any">
       </label>
     </div>
     <div class="cards" id="invest-cards"></div>
     <table id="invest-table">
-      <thead><tr><th>Year</th><th class="num">Contributed</th><th class="num">Value</th><th class="num">Return</th></tr></thead>
+      <thead><tr>
+        <th data-i18n="th.year">Year</th>
+        <th class="num" data-i18n="th.contributed">Contributed</th>
+        <th class="num" data-i18n="th.value">Value</th>
+        <th class="num" data-i18n="th.return">Return</th>
+      </tr></thead>
       <tbody></tbody>
     </table>
     <canvas id="invest-chart" height="260"></canvas>
@@ -68,21 +74,26 @@
 
   <!-- ============ PORTFOLIO ============ -->
   <section class="panel" id="panel-Portfolio">
-    <p class="sub">Split a monthly contribution across assets, each with its own expected ROI.</p>
+    <p class="sub" data-i18n="sub.portfolio">Split a monthly contribution across assets, each with its own expected ROI.</p>
     <div class="grid">
-      <label>Monthly amount
+      <label><span data-i18n="label.monthly">Monthly amount</span>
         <input type="number" id="pf-monthly" value="1000000" step="any">
       </label>
-      <label>Months
+      <label><span data-i18n="label.months">Months</span>
         <input type="number" id="pf-months" value="12" step="any">
       </label>
     </div>
     <table id="pf-table">
-      <thead><tr><th>Asset</th><th class="num">Weight (%)</th><th class="num">Annual ROI (%)</th><th></th></tr></thead>
+      <thead><tr>
+        <th data-i18n="th.asset">Asset</th>
+        <th class="num" data-i18n="th.weight">Weight (%)</th>
+        <th class="num" data-i18n="th.roi">Annual ROI (%)</th>
+        <th></th>
+      </tr></thead>
       <tbody></tbody>
     </table>
     <div class="row">
-      <button class="btn" id="pf-add">+ Add asset</button>
+      <button class="btn" id="pf-add" data-i18n="btn.add_asset">+ Add asset</button>
       <span class="sum" id="pf-sum">Sum: 0%</span>
     </div>
     <div class="cards" id="pf-cards"></div>
@@ -92,40 +103,40 @@
 
   <!-- ============ TRADING ============ -->
   <section class="panel" id="panel-Trading">
-    <p class="sub">Expected value, break-even win rate, and liquidation risk. Amounts in USD.</p>
+    <p class="sub" data-i18n="sub.trading">Expected value, break-even win rate, and liquidation risk. Amounts in USD.</p>
     <div class="grid">
-      <label>Strategy preset
+      <label><span data-i18n="label.preset">Strategy preset</span>
         <select id="tr-preset"></select>
       </label>
-      <label>Fee model
+      <label><span data-i18n="label.fee_model">Fee model</span>
         <select id="tr-fee">
-          <option value="futures">Futures (0.05% x2 + 0.03%)</option>
-          <option value="spot">Spot (0.5% x2, $0.95 floor)</option>
+          <option value="futures" data-i18n="opt.futures">Futures</option>
+          <option value="spot" data-i18n="opt.spot">Spot</option>
         </select>
       </label>
-      <label>Leverage
+      <label><span data-i18n="label.leverage">Leverage</span>
         <input type="number" id="tr-lev" value="10" step="any">
       </label>
-      <label>Capital
+      <label><span data-i18n="label.capital">Capital</span>
         <input type="number" id="tr-capital" value="100" step="any">
       </label>
-      <label>Trades
+      <label><span data-i18n="label.trades">Trades</span>
         <input type="number" id="tr-trades" value="100" step="any">
       </label>
-      <label>Notional (USD)
+      <label><span data-i18n="label.notional">Notional (USD)</span>
         <input type="number" id="tr-notional" value="20" step="any">
       </label>
-      <label>Reward (USD)
+      <label><span data-i18n="label.reward">Reward (USD)</span>
         <input type="number" id="tr-reward" value="4" step="any">
       </label>
-      <label>Risk (USD)
+      <label><span data-i18n="label.risk">Risk (USD)</span>
         <input type="number" id="tr-risk" value="1" step="any">
       </label>
     </div>
     <div class="slider-wrap">
-      <div class="slider-label">Win rate: <b id="tr-wr-val">50%</b></div>
+      <div class="slider-label"><span data-i18n="label.win_rate">Win rate</span>: <b id="tr-wr-val">50%</b></div>
       <input type="range" id="tr-wr" min="0" max="100" value="50" step="1">
-      <div class="marker" id="tr-marker" title="Break-even win rate"></div>
+      <div class="marker" id="tr-marker" data-i18n="card.breakeven" data-i18n-attr="title"></div>
       <div class="marker-label" id="tr-marker-label"></div>
     </div>
     <div class="cards" id="tr-cards"></div>
@@ -135,37 +146,48 @@
 
   <!-- ============ SIMULATE ============ -->
   <section class="panel" id="panel-Simulate">
-    <p class="sub">Sweep win rate across the three sizing strategies. Amounts in USD.</p>
+    <p class="sub" data-i18n="sub.simulate">Sweep win rate across the three sizing strategies. Amounts in USD.</p>
     <div class="grid">
-      <label>Win rate from (%)
+      <label><span data-i18n="label.win_rate_from">Win rate from (%)</span>
         <input type="number" id="sim-min" value="20" step="any">
       </label>
-      <label>Win rate to (%)
+      <label><span data-i18n="label.win_rate_to">Win rate to (%)</span>
         <input type="number" id="sim-max" value="60" step="any">
       </label>
-      <label>Capital
+      <label><span data-i18n="label.capital">Capital</span>
         <select id="sim-capital">
           <option value="100">$100</option>
           <option value="500">$500</option>
           <option value="1000">$1000</option>
         </select>
       </label>
-      <label>Trades
+      <label><span data-i18n="label.trades">Trades</span>
         <input type="number" id="sim-trades" value="100" step="any">
       </label>
     </div>
     <div class="cards" id="sim-cards"></div>
     <table id="sim-table">
       <thead><tr>
-        <th>WR</th><th class="num">Net A</th><th class="num">Net B</th><th class="num">Net C</th>
-        <th class="num">Gross A</th><th class="num">Gross C</th><th class="num">Sharpe A</th><th class="num">Sharpe C</th>
+        <th data-i18n="th.wr">WR</th>
+        <th class="num" data-i18n="th.net_a">Net A</th>
+        <th class="num" data-i18n="th.net_b">Net B</th>
+        <th class="num" data-i18n="th.net_c">Net C</th>
+        <th class="num" data-i18n="th.gross_a">Gross A</th>
+        <th class="num" data-i18n="th.gross_c">Gross C</th>
+        <th class="num" data-i18n="th.sh_a">Sharpe A</th>
+        <th class="num" data-i18n="th.sh_c">Sharpe C</th>
       </tr></thead>
       <tbody></tbody>
     </table>
     <canvas id="sim-chart" height="280"></canvas>
-    <h3>Capital scaling</h3>
+    <h3 data-i18n="h3.capital_scaling">Capital scaling</h3>
     <table id="sim-cap-table">
-      <thead><tr><th>Capital</th><th class="num">Fixed</th><th class="num">Percent</th><th class="num">Compounding</th></tr></thead>
+      <thead><tr>
+        <th data-i18n="th.capital">Capital</th>
+        <th class="num" data-i18n="th.fixed">Fixed</th>
+        <th class="num" data-i18n="th.percent">Percent</th>
+        <th class="num" data-i18n="th.compounding">Compounding</th>
+      </tr></thead>
       <tbody></tbody>
     </table>
     <div class="err" id="sim-err"></div>

@@ -1,5 +1,6 @@
 """Static frontend contract: files present, no CDN, tabs wired, math not duplicated."""
 import pathlib
+import re
 
 WEB = pathlib.Path("web")
 
@@ -10,8 +11,15 @@ def test_web_assets_exist():
 
 
 def test_no_cdn_links():
-    html = (WEB / "index.html").read_text()
-    assert "http://" not in html and "https://" not in html
+    # The app must work fully offline. data: URIs are inline by definition, so
+    # strip them before scanning; the SVG namespace inside the favicon is not a
+    # network fetch.
+    for f in sorted(WEB.glob("*")):
+        if f.suffix not in (".html", ".css", ".js"):
+            continue
+        text = re.sub(r'"data:[^"]*"|\'data:[^\']*\'', '""', f.read_text())
+        for bad in ("http://", "https://", "//cdn", "unpkg", "jsdelivr", "cdnjs"):
+            assert bad not in text, (f.name, bad)
 
 
 def test_four_tabs_present():

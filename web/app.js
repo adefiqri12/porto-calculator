@@ -57,6 +57,53 @@
   var usd = function (v, d) { return I18n.formatUSD(v, d); };
   var pct = function (v, d) { return I18n.formatPercent(v, d === undefined ? 2 : d); };
   var numf = function (v, d) { return I18n.formatNumber(v, d === undefined ? 2 : d); };
+  var T = function (k) { return I18n.t(k); };
+
+  /* ---------------- persistence (localStorage only, no server) ---------------- */
+
+  var STORE_KEY = "porto-calculator.inputs.v1";
+  var INPUT_IDS = [
+    "cagr-return", "cagr-years", "dca-monthly", "dca-roi", "dca-months",
+    "pf-monthly", "pf-months",
+    "tr-lev", "tr-capital", "tr-trades", "tr-notional", "tr-reward", "tr-risk",
+    "tr-wr", "tr-fee", "sim-min", "sim-max", "sim-capital", "sim-trades",
+    "currency", "lang"
+  ];
+
+  function saveInputs() {
+    try {
+      var data = {};
+      INPUT_IDS.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) data[id] = el.value;
+      });
+      data.pfHoldings = pfHoldings;
+      window.localStorage.setItem(STORE_KEY, JSON.stringify(data));
+    } catch (e) {
+      // Private mode or a full quota. Persistence is a convenience, so a
+      // failure here must not break the calculator. Surface it, do not hide it.
+      if (window.console) window.console.warn("porto-calculator: could not save inputs", e);
+    }
+  }
+
+  function loadInputs() {
+    try {
+      var raw = window.localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var data = JSON.parse(raw);
+      Object.keys(data).forEach(function (id) {
+        if (id === "pfHoldings") return;
+        var el = document.getElementById(id);
+        if (el) el.value = data[id];
+      });
+      if (Array.isArray(data.pfHoldings) && data.pfHoldings.length) {
+        pfHoldings = data.pfHoldings;
+      }
+    } catch (e) {
+      // Corrupt JSON from an older version: fall back to defaults, but say so.
+      if (window.console) window.console.warn("porto-calculator: could not restore inputs", e);
+    }
+  }
 
   /* ---------------- tabs ---------------- */
 
@@ -96,10 +143,10 @@
     cagrReq.then(function (cagrRes) {
       return postJSON("/api/dca", dcaBody).then(function (dcaRes) {
         $("#invest-cards").innerHTML =
-          card("CAGR", cagrRes.cagr_pct === null ? "-" : pct(cagrRes.cagr_pct), "per year", "a") +
-          card("Future value", money(dcaRes.future_value), "", "b") +
-          card("Total invested", money(dcaRes.total_invested), "", "") +
-          card("Total return", money(dcaRes.total_return), "", "c");
+          card(T("card.cagr"), cagrRes.cagr_pct === null ? "-" : pct(cagrRes.cagr_pct), T("note.per_year"), "a") +
+          card(T("card.future_value"), money(dcaRes.future_value), "", "b") +
+          card(T("card.invested"), money(dcaRes.total_invested), "", "") +
+          card(T("card.return"), money(dcaRes.total_return), "", "c");
 
         var rows = dcaRes.yearly.map(function (r) {
           return "<tr><td>" + r.year + "</td><td class='num'>" + money(r.contributed) +
@@ -184,7 +231,7 @@
       })
     }).then(function (res) {
       $("#pf-cards").innerHTML =
-        card("Total", money(res.total_fv), "", "b") +
+        card(T("card.total"), money(res.total_fv), "", "b") +
         res.per_asset.map(function (a) {
           return card(a.name + " (" + numf(a.weight_pct, 0) + "%)", money(a.future_value), "", "");
         }).join("");
@@ -233,13 +280,13 @@
     }).then(function (res) {
       var netCls = res.net_profit >= 0 ? "win" : "lose";
       $("#tr-cards").innerHTML =
-        card("Expected value", numf(res.expected_value, 3), "per trade", "a") +
-        card("Break-even WR", pct(res.break_even_win_rate_pct, 1), "", "c") +
-        card("Profit factor", numf(res.profit_factor, 3), "", "") +
-        card("Sharpe", numf(res.sharpe, 3), "per trade, not annualised", "b") +
-        card("Net profit", usd(res.net_profit), numf(num("#tr-trades"), 0) + " trades", netCls) +
-        card("Fee per trade", usd(res.fee_per_trade, 4), "", "") +
-        card("Liquidation distance", pct(res.liquidation_distance_pct, 1), "price move", "warnc");
+        card(T("card.ev"), numf(res.expected_value, 3), T("note.per_trade"), "a") +
+        card(T("card.breakeven"), pct(res.break_even_win_rate_pct, 1), "", "c") +
+        card(T("card.pf"), numf(res.profit_factor, 3), "", "") +
+        card(T("card.sharpe"), numf(res.sharpe, 3), T("note.not_annualised"), "b") +
+        card(T("card.net"), usd(res.net_profit), numf(num("#tr-trades"), 0) + " " + T("note.trades"), netCls) +
+        card(T("card.fee"), usd(res.fee_per_trade, 4), "", "") +
+        card(T("card.liq"), pct(res.liquidation_distance_pct, 1), T("note.price_move"), "warnc");
 
       var marker = $("#tr-marker");
       marker.style.left = "calc(2px + (100% - 4px) * " + (res.break_even_win_rate_pct / 100) + ")";
@@ -281,8 +328,8 @@
       trades: Math.max(1, Math.round(num("#sim-trades")))
     }).then(function (res) {
       $("#sim-cards").innerHTML =
-        card("Best by Sharpe", res.best_by_sharpe.strategy, numf(res.best_by_sharpe.sharpe, 3), "a") +
-        card("Best by net", res.best_by_net.strategy, usd(res.best_by_net.net), "b");
+        card(T("card.best_sharpe"), res.best_by_sharpe.strategy, numf(res.best_by_sharpe.sharpe, 3), "a") +
+        card(T("card.best_net"), res.best_by_net.strategy, usd(res.best_by_net.net), "b");
 
       $("#sim-table tbody").innerHTML = res.rows.map(function (r) {
         var cls = function (v) { return v >= 0 ? "win" : "lose"; };
@@ -316,16 +363,27 @@
   /* ---------------- init ---------------- */
 
   function init() {
+    loadInputs();
+
+    // Restore the language/currency choices before the first paint.
+    I18n.setLang($("#lang").value || "id");
+    I18n.setCurrency($("#currency").value || "IDR");
+    I18n.apply();
+
     document.querySelectorAll(".tab").forEach(function (btn) {
       btn.addEventListener("click", function () { setTab(btn.getAttribute("data-tab")); });
     });
 
     $("#currency").addEventListener("change", function (e) {
       I18n.setCurrency(e.target.value);
+      I18n.apply();
+      saveInputs();
       setTab(document.querySelector(".tab.is-active").getAttribute("data-tab"));
     });
     $("#lang").addEventListener("change", function (e) {
       I18n.setLang(e.target.value);
+      I18n.apply();
+      saveInputs();
       setTab(document.querySelector(".tab.is-active").getAttribute("data-tab"));
     });
 
@@ -362,6 +420,13 @@
     }).catch(function () {
       setTab("Invest");
     });
+
+    // Persist whenever any tracked input changes.
+    INPUT_IDS.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener("change", saveInputs);
+    });
+    document.addEventListener("input", saveInputs);
   }
 
   if (document.readyState === "loading") {
