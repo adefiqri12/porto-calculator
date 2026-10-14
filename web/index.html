@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Porto Calculator</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="dot"></span> Porto Calculator
+  </div>
+  <div class="controls">
+    <label>Currency
+      <select id="currency">
+        <option value="IDR">IDR</option>
+        <option value="USD">USD</option>
+      </select>
+    </label>
+    <label>Language
+      <select id="lang">
+        <option value="id">Indonesia</option>
+        <option value="en">English</option>
+      </select>
+    </label>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab is-active" data-tab="Invest">Invest</button>
+  <button class="tab" data-tab="Portfolio">Portfolio</button>
+  <button class="tab" data-tab="Trading">Trading</button>
+  <button class="tab" data-tab="Simulate">Simulate</button>
+</nav>
+
+<main>
+
+  <!-- ============ INVEST ============ -->
+  <section class="panel is-active" id="panel-Invest">
+    <p class="sub">CAGR and dollar-cost-averaging future value.</p>
+    <div class="grid">
+      <label>Total return (%)
+        <input type="number" id="cagr-return" value="150" step="any">
+      </label>
+      <label>Years
+        <input type="number" id="cagr-years" value="5" step="any">
+      </label>
+      <label>Monthly amount
+        <input type="number" id="dca-monthly" value="1000000" step="any">
+      </label>
+      <label>Annual ROI (%)
+        <input type="number" id="dca-roi" value="12" step="any">
+      </label>
+      <label>Months
+        <input type="number" id="dca-months" value="12" step="any">
+      </label>
+    </div>
+    <div class="cards" id="invest-cards"></div>
+    <table id="invest-table">
+      <thead><tr><th>Year</th><th class="num">Contributed</th><th class="num">Value</th><th class="num">Return</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <canvas id="invest-chart" height="260"></canvas>
+    <div class="err" id="invest-err"></div>
+  </section>
+
+  <!-- ============ PORTFOLIO ============ -->
+  <section class="panel" id="panel-Portfolio">
+    <p class="sub">Split a monthly contribution across assets, each with its own expected ROI.</p>
+    <div class="grid">
+      <label>Monthly amount
+        <input type="number" id="pf-monthly" value="1000000" step="any">
+      </label>
+      <label>Months
+        <input type="number" id="pf-months" value="12" step="any">
+      </label>
+    </div>
+    <table id="pf-table">
+      <thead><tr><th>Asset</th><th class="num">Weight (%)</th><th class="num">Annual ROI (%)</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="row">
+      <button class="btn" id="pf-add">+ Add asset</button>
+      <span class="sum" id="pf-sum">Sum: 0%</span>
+    </div>
+    <div class="cards" id="pf-cards"></div>
+    <canvas id="pf-chart" height="260"></canvas>
+    <div class="err" id="pf-err"></div>
+  </section>
+
+  <!-- ============ TRADING ============ -->
+  <section class="panel" id="panel-Trading">
+    <p class="sub">Expected value, break-even win rate, and liquidation risk. Amounts in USD.</p>
+    <div class="grid">
+      <label>Strategy preset
+        <select id="tr-preset"></select>
+      </label>
+      <label>Fee model
+        <select id="tr-fee">
+          <option value="futures">Futures (0.05% x2 + 0.03%)</option>
+          <option value="spot">Spot (0.5% x2, $0.95 floor)</option>
+        </select>
+      </label>
+      <label>Leverage
+        <input type="number" id="tr-lev" value="10" step="any">
+      </label>
+      <label>Capital
+        <input type="number" id="tr-capital" value="100" step="any">
+      </label>
+      <label>Trades
+        <input type="number" id="tr-trades" value="100" step="any">
+      </label>
+      <label>Notional (USD)
+        <input type="number" id="tr-notional" value="20" step="any">
+      </label>
+      <label>Reward (USD)
+        <input type="number" id="tr-reward" value="4" step="any">
+      </label>
+      <label>Risk (USD)
+        <input type="number" id="tr-risk" value="1" step="any">
+      </label>
+    </div>
+    <div class="slider-wrap">
+      <div class="slider-label">Win rate: <b id="tr-wr-val">50%</b></div>
+      <input type="range" id="tr-wr" min="0" max="100" value="50" step="1">
+      <div class="marker" id="tr-marker" title="Break-even win rate"></div>
+      <div class="marker-label" id="tr-marker-label"></div>
+    </div>
+    <div class="cards" id="tr-cards"></div>
+    <div class="alert" id="tr-alert"></div>
+    <div class="err" id="tr-err"></div>
+  </section>
+
+  <!-- ============ SIMULATE ============ -->
+  <section class="panel" id="panel-Simulate">
+    <p class="sub">Sweep win rate across the three sizing strategies. Amounts in USD.</p>
+    <div class="grid">
+      <label>Win rate from (%)
+        <input type="number" id="sim-min" value="20" step="any">
+      </label>
+      <label>Win rate to (%)
+        <input type="number" id="sim-max" value="60" step="any">
+      </label>
+      <label>Capital
+        <select id="sim-capital">
+          <option value="100">$100</option>
+          <option value="500">$500</option>
+          <option value="1000">$1000</option>
+        </select>
+      </label>
+      <label>Trades
+        <input type="number" id="sim-trades" value="100" step="any">
+      </label>
+    </div>
+    <div class="cards" id="sim-cards"></div>
+    <table id="sim-table">
+      <thead><tr>
+        <th>WR</th><th class="num">Net A</th><th class="num">Net B</th><th class="num">Net C</th>
+        <th class="num">Gross A</th><th class="num">Gross C</th><th class="num">Sharpe A</th><th class="num">Sharpe C</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+    <canvas id="sim-chart" height="280"></canvas>
+    <h3>Capital scaling</h3>
+    <table id="sim-cap-table">
+      <thead><tr><th>Capital</th><th class="num">Fixed</th><th class="num">Percent</th><th class="num">Compounding</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div class="err" id="sim-err"></div>
+  </section>
+
+</main>
+
+<script src="i18n.js"></script>
+<script src="charts.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
