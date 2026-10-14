@@ -6,14 +6,17 @@ i18n wiring can be confirmed rather than assumed.
 """
 import asyncio
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import urllib.request
 
 import websockets
 
-URL = "http://127.0.0.1:8011/"
-PORT = 9333
+# Point at any running instance: PORTO_URL=http://127.0.0.1:9000/ ...
+URL = os.environ.get("PORTO_URL", "http://127.0.0.1:8000/")
+PORT = int(os.environ.get("PORTO_CDP_PORT", "9333"))
 
 ERRORS = []
 
@@ -21,7 +24,8 @@ ERRORS = []
 async def main():
     proc = subprocess.Popen([
         "google-chrome", "--headless=new", "--disable-gpu", "--no-sandbox",
-        "--remote-debugging-port=%d" % PORT, "--user-data-dir=/tmp/cdpprof",
+        "--remote-debugging-port=%d" % PORT,
+        "--user-data-dir=" + os.path.join(tempfile.gettempdir(), "porto-cdp-profile"),
         "about:blank",
     ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
@@ -116,6 +120,32 @@ async def main():
             await asyncio.sleep(1.2)
             res = await read_tab("Invest")
             print("Invest cards:", res["cards"])
+
+            print("\n== persistence: write inputs, reload, expect them restored ==")
+            # 500/month over 24 months at 12% (annuity-due) must recompute to
+            # exactly 13621.6, so a stale default cannot masquerade as a restore.
+            await ev(
+                "localStorage.setItem('porto-calculator.inputs.v1', JSON.stringify({"
+                "lang:'en',currency:'USD','dca-monthly':'500','dca-months':'24',"
+                "'cagr-return':'150','cagr-years':'5','dca-roi':'12'}));"
+            )
+            await send("Page.reload", {})
+            await asyncio.sleep(3)
+            state = await ev(
+                "(function(){return {"
+                "lang:document.querySelector('#lang').value,"
+                "currency:document.querySelector('#currency').value,"
+                "tab:document.querySelector('.tab.is-active').textContent,"
+                "fv:(document.querySelector('#invest-cards .big.b')||{}).textContent||''};})()"
+            )
+            print("restored:", state)
+            for field, want in (("lang", "en"), ("currency", "USD"), ("tab", "Invest")):
+                if state.get(field) != want:
+                    ok = False
+                    print("   FAIL: %s restored as %r, expected %r" % (field, state.get(field), want))
+            if "13,621.6" not in state.get("fv", ""):
+                ok = False
+                print("   FAIL: recomputed future value was %r, expected 13,621.6" % state.get("fv"))
 
             print("\n== console errors ==")
             real = [e for e in ERRORS if "favicon" not in e.lower()]

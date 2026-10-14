@@ -27,6 +27,10 @@ console errors) against a running server:
 .venv/bin/python tests/cdp_check.py
 ```
 
+It defaults to `http://127.0.0.1:8000/`; override with `PORTO_URL`. It exits
+non-zero on a missing card, an untranslated key, a failed restore, or any
+console error.
+
 ## What it does
 
 Four tabs, all live (change an input, results update):
