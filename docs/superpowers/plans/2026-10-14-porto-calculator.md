@@ -1,5 +1,10 @@
 # Porto Calculator Implementation Plan
 
+> **STATUS: executed.** All 14 tasks landed. 129 tests pass. The app runs from
+> `.venv/bin/uvicorn api.app:create_app --factory --port 8000`. See
+> "Post-execution corrections" at the end of this file for what the plan got
+> wrong; the body below is left as written, not retro-edited.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Unify four loose CLI scripts and two frozen HTML reports into one offline browser calculator for stock/crypto investing and trading math, with a pure-Python core, a thin FastAPI JSON API, and a no-build static frontend.
@@ -853,3 +858,27 @@ git commit -m "docs: migrate originals to archive/ and rewrite README"
 **4. Review Focus.** All five uncovered failure modes have tests in their owning tasks: #1 and #5 in Task 3, #2 and #4 in Task 6, #3 in Task 4. None left open.
 
 **5. Proportion.** The plan is longer than the spec because it carries exact signatures and test assertions; code bodies appear only where the signature and tests do not determine the implementation (Task 7's `compound_equity`).
+
+---
+
+## Post-execution corrections
+
+Written after the build, because two of the claims above were wrong.
+
+**1. "No gaps" was overstated.** Task 9 reduced `i18n.js` to `t(key)` plus
+`formatMoney`, and no task wired the dictionary through the UI or implemented
+`localStorage`. The result shipped with a language toggle that translated 3 of
+~45 strings, so Indonesian was the stated default while the UI rendered in
+English. Fixed in `3e61581`; the frontend now carries `data-i18n` attributes
+and `I18n.apply()`, and `tests/test_i18n.py` fails on any missing key.
+
+**2. The plan's frontend verification was "manual browser checks", which is
+weaker than it sounds.** Manual inspection is what missed the i18n gap and, more
+seriously, a `global.localStorage` ReferenceError that a try/catch swallowed so
+completely that restore was a silent no-op. `tests/cdp_check.py` now drives real
+clicks over the Chrome DevTools Protocol and fails on console errors.
+
+**3. Core-purity vs. Pydantic.** Caught during execution, noted for accuracy:
+the core-purity test forbids Pydantic in `core/`, but Task 4 put Pydantic models
+there. Resolved by splitting `core/presets.py` (stdlib dataclass) from
+`api/schemas.py` (Pydantic).

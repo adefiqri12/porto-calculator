@@ -1,7 +1,7 @@
 # Porto Calculator — Unified Investing & Trading Calculator
 
 **Date:** 2026-10-14
-**Status:** Approved (design)
+**Status:** Approved (design), implemented. Every requirement in this spec is built and verified except where section 12 notes otherwise; see the implementation plan's "Post-execution corrections" for the two places the plan under-delivered before being fixed.
 **Approach:** A — pure-Python core + JSON API + no-build static frontend
 **Scope:** Calculator only. Offline-capable. No market data, no broker integration.
 
