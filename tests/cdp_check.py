@@ -247,6 +247,52 @@ async def main():
                      "document.querySelector('#sim-slip').dispatchEvent(new Event('input'));")
             await asyncio.sleep(2.0)
 
+            # The projected cost has to be visible BEFORE the request is sent,
+            # otherwise the only feedback on an oversized run is a server error.
+            print("\n== Simulate: pre-flight cost estimate is shown and tracks the inputs ==")
+            default_cost = await ev("document.querySelector('#sim-cost').textContent")
+            print("default cost:", repr(default_cost))
+            if not default_cost or "paths" not in default_cost:
+                ok = False
+                print("   FAIL: no pre-flight cost estimate rendered")
+            # Raising the simulation count must raise the estimate. Use a size
+            # the guard refuses outright so this does not actually launch a
+            # minute-long run: the estimate must warn before that.
+            await ev("var s=document.querySelector('#sim-sims');s.value='200000';"
+                     "s.dispatchEvent(new Event('input'));")
+            await asyncio.sleep(1.0)
+            big_cost = await ev("document.querySelector('#sim-cost').textContent")
+            print("200000 sims:", repr(big_cost))
+            if big_cost == default_cost:
+                ok = False
+                print("   FAIL: cost estimate did not update when simulations changed")
+            # The estimate must be the real product, not a plausible-looking
+            # number: recompute rows x sims x trades from the live inputs.
+            check = await ev(
+                "(function(){var lo=parseFloat(document.querySelector('#sim-min').value),"
+                "hi=parseFloat(document.querySelector('#sim-max').value),"
+                "sims=parseFloat(document.querySelector('#sim-sims').value),"
+                "tr=parseFloat(document.querySelector('#sim-trades').value);"
+                "var step=Math.max(1,Math.round((hi-lo)/8)||1),n=0;"
+                "for(var v=lo;v<=hi+1e-9;v+=step)n++;"
+                "var first=document.querySelector('#sim-cost').textContent.split(' ')[0];"
+                "return {expected:n*sims*tr, shown:parseFloat(first.replace(/[^0-9]/g,''))};})()"
+            )
+            print("expected paths:", check["expected"], "shown:", check["shown"])
+            if check["expected"] != check["shown"]:
+                ok = False
+                print("   FAIL: cost estimate is not rows x simulations x trades")
+            # The guard refuses past the budget, so the estimate must warn well
+            # before that, not only after a rejection.
+            cls = await ev("document.querySelector('#sim-cost').className")
+            print("class:", repr(cls))
+            if "warnc" not in cls:
+                ok = False
+                print("   FAIL: a very slow run was not flagged as slow")
+            await ev("var s=document.querySelector('#sim-sims');s.value='1000';"
+                     "s.dispatchEvent(new Event('input'));")
+            await asyncio.sleep(2.0)
+
             print("\n== switch back to id, currency IDR ==")
             await ev("var l=document.querySelector('#lang');l.value='id';l.dispatchEvent(new Event('change'));"
                      "var c=document.querySelector('#currency');c.value='IDR';c.dispatchEvent(new Event('change'));")

@@ -78,6 +78,9 @@
       "note.price_move": "pergerakan harga",
       "note.trades": "trade",
       "note.half_kelly": "setengah",
+      "note.sim_paths": "path",
+      "note.sim_about": "sekitar",
+      "note.sim_slow": "ini bisa memakan waktu",
 
       "btn.add_asset": "+ Tambah aset",
 
@@ -165,6 +168,9 @@
       "note.price_move": "price move",
       "note.trades": "trades",
       "note.half_kelly": "half",
+      "note.sim_paths": "paths",
+      "note.sim_about": "about",
+      "note.sim_slow": "this may take a while",
 
       "btn.add_asset": "+ Add asset",
 

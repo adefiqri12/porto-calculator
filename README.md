@@ -40,7 +40,7 @@ Four tabs, all live (change an input, results update):
 | **Invest** | total return, years, monthly amount, annual ROI, months | CAGR, future value, total invested, total return, yearly table + chart |
 | **Portfolio** | monthly amount, months, per-asset name/weight/ROI | per-asset and total future value, live weight-sum validation |
 | **Trading** | preset, win rate, fee model, leverage, capital, trades | EV, break-even win rate, profit factor, Sharpe, net profit, liquidation warning |
-| **Simulate** | capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model (futures/spot), trades, win-rate from/to (%), simulations, bust level (% of capital), slippage (%) - risk, reward:risk, win-rate bounds and slippage also have range sliders | per-win-rate table: WR, mean net, P(success), P(busted), max drawdown, expectancy, Sharpe (seeded Monte Carlo), plus a Kelly / half-Kelly sizing card. P(success) shows green at or above 75%. |
+| **Simulate** | capital, risk per trade (%), stop distance (%), reward:risk, leverage, fee model (futures/spot), trades, win-rate from/to (%), simulations, bust level (% of capital), slippage (%) - risk, reward:risk, win-rate bounds and slippage also have range sliders | per-win-rate table: WR, mean net, P(success), P(busted), max drawdown, expectancy, Sharpe (seeded Monte Carlo), plus a Kelly / half-Kelly sizing card and a pre-flight cost estimate. P(success) shows green at or above 75%. |
 
 Currency (IDR/USD) and language (id/en) are togglable in the header. The
 whole UI is translated, not just part of it: `web/i18n.js` holds the `id`/`en`

@@ -117,17 +117,61 @@ def test_simulate_rejects_invalid_numbers():
 
 
 def test_simulate_rejects_oversized_request():
-    # 20 win rates x 20000 sims x 2000 trades is far past the work limit.
+    # Well past the work limit: 20 win rates x 1,000,000 sims x 2000 trades.
     r = client.post("/api/simulate", json={
         "win_rate_pcts": [float(w) for w in range(20, 40)],
-        "n_sims": 20000, "trades": 2000,
+        "n_sims": 1_000_000, "trades": 2000,
     })
     assert r.status_code == 422
     assert "too large" in r.json()["detail"]
 
 
-def test_simulate_rejects_n_sims_above_cap():
-    assert client.post("/api/simulate", json={"n_sims": 20001}).status_code == 422
+def test_oversized_message_names_the_fields_and_the_cost():
+    """The error has to be actionable: the raw product of three inputs is not."""
+    detail = client.post("/api/simulate", json={
+        "win_rate_pcts": [float(w) for w in range(20, 40)],
+        "n_sims": 1_000_000, "trades": 2000,
+    }).json()["detail"]
+    for fragment in ("20 win rates", "1,000,000 simulations", "2,000 trades",
+                     "simulated trades", "Reduce"):
+        assert fragment in detail, (fragment, detail)
+
+
+def test_guard_admits_the_request_that_was_wrongly_refused():
+    """Regression for the reported bug, checked on the guard directly.
+
+    9 win rates x 10,000 simulations x 500 trades = 45,000,000 paths, about 19s
+    of work. The old cap of 20,000,000 refused this; it must now pass, and
+    running the guard directly keeps the test suite fast.
+    """
+    from api.routes import check_simulate_size, simulate_cost
+
+    assert simulate_cost(9, 10_000, 500) == 45_000_000
+    check_simulate_size(9, 10_000, 500)  # must not raise
+
+
+def test_guard_boundary_is_where_the_budget_says_it_is():
+    import pytest
+    from fastapi import HTTPException
+
+    from api.routes import MAX_TOTAL_PATHS, check_simulate_size
+
+    # Exactly at the budget passes; one path over does not.
+    check_simulate_size(1, MAX_TOTAL_PATHS, 1)
+    with pytest.raises(HTTPException) as exc:
+        check_simulate_size(1, MAX_TOTAL_PATHS + 1, 1)
+    assert exc.value.status_code == 422
+
+
+def test_n_sims_cap_is_a_memory_backstop_not_the_work_limit():
+    # The list of finals and drawdowns holds one float per simulation, so a huge
+    # n_sims is bounded for memory; total work is bounded separately.
+    assert client.post("/api/simulate", json={"n_sims": 1_000_001}).status_code == 422
+    # A large n_sims that is still cheap in total work is fine.
+    r = client.post("/api/simulate", json={
+        "n_sims": 200_000, "trades": 1, "win_rate_pcts": [50.0],
+    })
+    assert r.status_code == 200
 
 
 def test_simulate_rows_carry_kelly_pct():

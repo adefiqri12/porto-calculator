@@ -326,6 +326,21 @@
     var wrs = range(lo, hi, step);
     var nSims = Math.max(1, Math.round(num("#sim-sims")));
 
+    // Pre-flight cost estimate: rows x n_sims x trades simulated paths. Shown
+    // immediately (before the debounce below) so the cost of a request is
+    // visible before it is sent, not only when the server rejects it.
+    var trades = Math.max(1, Math.round(num("#sim-trades")));
+    var paths = wrs.length * nSims * trades;
+    // 1500000 is the conservative measured server throughput in paths/second;
+    // api/routes.py holds the matching PATHS_PER_SECOND constant, so keep the
+    // two in sync.
+    var seconds = paths / 1500000;
+    var costText = numf(paths, 0) + " " + T("note.sim_paths") + " - " +
+      T("note.sim_about") + " " + numf(seconds, seconds < 10 ? 1 : 0) + "s";
+    var costEl = $("#sim-cost");
+    costEl.classList.toggle("warnc", seconds > 20);
+    costEl.textContent = seconds > 20 ? costText + " - " + T("note.sim_slow") : costText;
+
     // Monte Carlo with many runs and many rows is genuinely slow, so debounce
     // longer and never let two requests overlap.
     clearTimeout(simTimer);

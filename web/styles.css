@@ -73,6 +73,8 @@ canvas{width:100%; display:block; background:var(--panel); border:1px solid var(
 input[type=range]{width:100%; accent-color:var(--a); cursor:pointer}
 .marker{position:absolute; top:44px; width:2px; height:18px; background:var(--warn); transform:translateX(-1px)}
 .marker-label{position:absolute; top:64px; font-size:11px; color:var(--warn); transform:translateX(-50%); white-space:nowrap}
+#sim-cost{margin:0 0 10px}
+#sim-cost.warnc{color:var(--warn); font-weight:600}
 .alert{display:none; background:rgba(248,81,73,.1); border:1px solid var(--bad); border-radius:9px; padding:12px 15px; margin:14px 0; font-size:13px; color:var(--bad)}
 .alert.show{display:block}
 .err{color:var(--bad); font-size:12.5px; min-height:18px; margin-top:8px; white-space:pre-wrap}

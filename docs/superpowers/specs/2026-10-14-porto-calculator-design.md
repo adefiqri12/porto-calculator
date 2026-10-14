@@ -360,7 +360,33 @@ ULP off). `tests/test_mc.py` asserts exact equality against `core.fees` and agai
 a naive reference implementation of the loop, so the optimisation cannot drift
 away from the model it claims to implement.
 
-### 13.6 API contract
+### 13.6 Work guard and cost estimate
+
+The unit of work is `rows x n_sims x trades` simulated trades. The limit is
+expressed in **seconds**, not in a raw path count: `PATHS_PER_SECOND` (measured
+at 1.5-1.7M under real load, and set to the conservative 1.5M) turns a work
+estimate into a wall clock estimate, and `MAX_SIMULATE_SECONDS = 60` is the
+budget. This replaced an earlier flat cap of 20,000,000 paths, which refused a
+perfectly reasonable request: 9 win rates x 10,000 simulations x 500 trades is
+45,000,000 paths, about 30s of work, and the user hit that refusal while asking
+for only 10,000 simulations.
+
+Two things make the limit fair rather than arbitrary:
+
+- The 422 message names the three inputs and the estimated cost, because the raw
+  product of three numbers is not something a user can reason about. The guard
+  is factored into `check_simulate_size(rows, n_sims, trades)` so the boundary is
+  testable without running the simulation.
+- The frontend shows the same estimate **before** the request is sent
+  (`#sim-cost`), flags anything over 20s, and derives it from the same throughput
+  constant. `tests/test_web_assets.py` asserts the two constants agree, since
+  drift would make the UI lie about the wait.
+
+`post_simulate` is a sync `def`, so FastAPI runs it in a threadpool: a long
+request does not block the event loop or other requests. An earlier comment
+claiming the server was single-threaded was simply wrong and has been corrected.
+
+### 13.7 API contract
 
 ```
 POST /api/simulate
@@ -377,7 +403,7 @@ POST /api/simulate
 
 Unknown `fee_model` or invalid numeric input returns HTTP 422.
 
-### 13.7 core/sim.py survives as the golden reference only
+### 13.8 core/sim.py survives as the golden reference only
 
 `core/sim.py` (the A/B/C sweep, equity curve, and capital scaling) is no longer served
 by the API. It remains only as the golden-fixture reference implementation that

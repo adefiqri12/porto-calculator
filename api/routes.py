@@ -8,10 +8,18 @@ from . import schemas
 
 router = APIRouter(prefix="/api")
 
-# ~15s of worst-case work on a single core. Enough for any sensible request
-# (the defaults are 9 rows x 1000 sims x 100 trades = 900k) while refusing the
-# combinations that would make the server appear to hang.
-MAX_TOTAL_PATHS = 20_000_000
+# The simulation is pure Python and runs at roughly this rate. Measured at
+# 1.5-1.7M paths/second under real load (an idle machine measures higher), so
+# this is deliberately the conservative end: a cost estimate that runs slow is
+# safer than one that promises a speed the machine will not deliver.
+PATHS_PER_SECOND = 1_500_000
+
+# A request this long is accepted but is slow enough to be worth warning about.
+# It is a UX guard, not a correctness one: `post_simulate` is a sync `def`, so
+# FastAPI runs it in a threadpool and a long request does not block the event
+# loop or other requests.
+MAX_SIMULATE_SECONDS = 60.0
+MAX_TOTAL_PATHS = int(PATHS_PER_SECOND * MAX_SIMULATE_SECONDS)
 
 
 @router.get("/health")
@@ -79,24 +87,41 @@ def post_trading(req: schemas.TradingRequest) -> schemas.TradingResponse:
     )
 
 
+def simulate_cost(rows: int, n_sims: int, trades: int) -> int:
+    """Simulated trades in a request, the unit of work the guard measures."""
+    return rows * n_sims * trades
+
+
+def check_simulate_size(rows: int, n_sims: int, trades: int) -> None:
+    """Refuse a simulation big enough to be unreasonable.
+
+    Raises ``HTTPException`` 422, naming the three inputs and the estimated wall
+    clock cost. The raw product of three numbers is not something a user can
+    reason about, so the message says which field drove the cost.
+    """
+    total_paths = simulate_cost(rows, n_sims, trades)
+    if total_paths > MAX_TOTAL_PATHS:
+        seconds = total_paths / PATHS_PER_SECOND
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"simulation too large: {rows} win rates x "
+                f"{n_sims:,} simulations x {trades:,} trades = "
+                f"{total_paths:,} simulated trades, about {seconds:.0f}s of "
+                f"work. The limit is about {MAX_SIMULATE_SECONDS:.0f}s "
+                f"({MAX_TOTAL_PATHS:,} trades). Reduce the number of "
+                f"simulations, trades, or win-rate steps."
+            ),
+        )
+
+
 @router.post("/simulate", response_model=schemas.SimulateResponse)
 def post_simulate(req: schemas.SimulateRequest) -> schemas.SimulateResponse:
     if req.fee_model not in ("futures", "spot"):
         raise HTTPException(status_code=422, detail=f"unknown fee_model: {req.fee_model}")
-    # The simulation is pure Python and the server is single-threaded, so a
-    # careless combination of rows, runs, and trades could block it for minutes.
-    # Bound the total work and say so plainly rather than hanging.
-    total_paths = len(req.win_rate_pcts) * req.n_sims * req.trades
-    if total_paths > MAX_TOTAL_PATHS:
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                f"simulation too large: {total_paths:,} simulated trades "
-                f"(win rates x simulations x trades) exceeds the limit of "
-                f"{MAX_TOTAL_PATHS:,}. Reduce the number of simulations, "
-                f"trades, or win-rate steps."
-            ),
-        )
+    # A careless combination of rows, simulations, and trades can ask for
+    # minutes of work. Refuse the genuinely unreasonable before doing any of it.
+    check_simulate_size(len(req.win_rate_pcts), req.n_sims, req.trades)
     try:
         rows = mc.sweep(
             capital=req.capital,

@@ -39,3 +39,21 @@ def test_app_only_talks_to_the_api():
     # no hardcoded golden constants leaking into the client
     for constant in ("147.40", "0.026", "1.04", "0.95"):
         assert constant not in js, constant
+
+
+def test_frontend_cost_estimate_uses_the_server_throughput_constant():
+    """The cost estimate shown before a request must match the server's guard.
+
+    The frontend divides the projected path count by a hardcoded throughput to
+    show an estimated time, and api/routes.py holds the matching
+    PATHS_PER_SECOND. If the two drift, the UI either lies about the wait or
+    fails to warn at all, and nothing else would catch it.
+    """
+    from api.routes import PATHS_PER_SECOND
+
+    app_js = (WEB / "app.js").read_text()
+    match = re.search(r"paths\s*/\s*(\d+)", app_js)
+    assert match, "no paths/throughput division found in app.js"
+    assert int(match.group(1)) == PATHS_PER_SECOND, (
+        "app.js divides by %s but the server uses %s" % (match.group(1), PATHS_PER_SECOND)
+    )
